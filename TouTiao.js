@@ -9,7 +9,7 @@
 	"inRepository": true,
 	"translatorType": 4,
 	"browserSupport": "gcsibv",
-	"lastUpdated": "2023-10-22 03:51:31"
+	"lastUpdated": "2023-10-22 04:36:07"
 }
 
 /*
@@ -49,7 +49,7 @@ function detectWeb(doc, url) {
 function getSearchResults(doc, checkOnly) {
 	var items = {};
 	var found = false;
-	var rows = doc.querySelectorAll('a[href*="/article/"]');
+	var rows = doc.querySelectorAll('div[class^="feed-card-article"] > a[href*="/article/"]');
 	for (let row of rows) {
 		let href = row.href;
 		let title = ZU.trimInternal(row.textContent);
@@ -66,7 +66,11 @@ async function doWeb(doc, url) {
 		let items = await Zotero.selectItems(getSearchResults(doc, false));
 		if (!items) return;
 		for (let url of Object.keys(items)) {
-			await scrape(await requestDocument(url));
+			try {
+				await scrape(await requestDocument(url));
+			}
+			catch (erro) {}
+			
 		}
 	}
 	else {
@@ -103,7 +107,9 @@ async function scrape(doc, url = doc.location.href) {
 		title: 'Snapshot',
 		document: doc
 	});
-	newItem.notes.push(doc.getElementsByTagName('article')[0].innerText);
+	let content = doc.getElementsByTagName('article')[0].innerHTML;
+	content = `<h1>${newItem.title}</h1>` + content;
+	newItem.notes.push({note: content});
 	newItem.complete();
 }
 /** BEGIN TEST CASES **/
