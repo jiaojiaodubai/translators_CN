@@ -45,7 +45,8 @@ function getContentsFromURL(url){var xmlhttp=new XMLHttpRequest();xmlhttp.open("
 function detectWeb(doc, url) {
 	if (url.includes('item')) {
 		return 'book';
-	} else if (url.includes('search')) {
+	}
+	else if (url.includes('search')) {
 		return 'multiple';
 	}
 	return '';
@@ -63,7 +64,7 @@ function getSearchResults(doc) {
 		}
 
 		var title = a.title;
-		var url = a.href
+		var url = a.href;
 
 		items[url] = title;
 	}
@@ -166,12 +167,13 @@ function scrapeSpc(document, url) {
 	var descrip = document.querySelector('[text="内容简介"] div.book-detail-content');
 	if (descrip) {
 		newItem.abstractNote = descrip.innerText;
-	} else if(sku) {
+	}
+	else if (sku) {
 		var json = getContentsFromURL('https://dx.3.cn/desc/' + sku + '?encode=utf-8');
-		var showdesc = function(json) {
-			var parser = new DOMParser()
-			var xml = parser.parseFromString(json.content, 'text/html')
-			var content = xml.querySelector('[text="内容简介"] .book-detail-content')
+		var showdesc = function (json) {
+			var parser = new DOMParser();
+			var xml = parser.parseFromString(json.content, 'text/html');
+			var content = xml.querySelector('[text="内容简介"] .book-detail-content');
 			if (content) {
 				newItem.abstractNote = content.innerText;
 			}

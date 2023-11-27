@@ -36,7 +36,6 @@
 */
 
 
-
 function getRefByIDs(ids, onDataAvailable) {
 	if (!ids.length) return;
 	let { url, paper } = ids.shift();
@@ -105,18 +104,19 @@ function doWeb(doc, url) {
 
 
 function scrape(doc, ids) {
-	getRefByIDs(ids, function(text, url) {
+	getRefByIDs(ids, function (text, url) {
 		let translator = Z.loadTranslator("import");
-		translator.setTranslator("9cb70025-a888-4a29-a210-93ec52da40d4");  // Bible format
+		translator.setTranslator("9cb70025-a888-4a29-a210-93ec52da40d4"); // Bible format
 		translator.setString(text);
-		translator.setHandler("itemDone", function(obj, newItem) {
+		translator.setHandler("itemDone", function (obj, newItem) {
 			newItem.url = url;
 			if (doc.querySelector("p.abstract")) newItem.abstractNote = doc.querySelector("p.abstract").innerText.trim();
 			let tagsList = doc.querySelectorAll("div.kw_wr p.kw_main a");
 			if (tagsList && tagsList.length == 1) {
 				newItem.tags = tagsList[0].innerText.split("；");
-			}else if (tagsList && tagsList.length > 1) {
-				tagsList.forEach(function(tag) {
+			}
+			else if (tagsList && tagsList.length > 1) {
+				tagsList.forEach(function (tag) {
 					newItem.tags.push(tag.innerText);
 				});
 			}

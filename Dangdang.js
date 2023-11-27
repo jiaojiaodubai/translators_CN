@@ -45,7 +45,8 @@ function getContentsFromURL(url){try{var xmlhttp=new XMLHttpRequest();xmlhttp.op
 function detectWeb(doc, url) {
 	if (url.includes('product')) {
 		return 'book';
-	} else if (url.includes('search')) {
+	}
+	else if (url.includes('search')) {
 		return 'multiple';
 	}
 	return '';
@@ -64,7 +65,7 @@ function getSearchResults(doc) {
 		}
 
 		var title = a.title.replace(/【.*】/g, '');
-		var url = a.href
+		var url = a.href;
 
 		items[url] = title;
 	}
@@ -157,27 +158,28 @@ function scrapeSpc(document, url) {
 	var descrip = document.querySelector('#content > div.descrip');
 	if (descrip) {
 		newItem.abstractNote = descrip.innerText;
-	} else {
-		var element = Object.values(document.scripts).find(element => element.textContent.includes('prodSpuInfo'))
+	}
+	else {
+		var element = Object.values(document.scripts).find(element => element.textContent.includes('prodSpuInfo'));
 		if (element) {
-			var pattern = /var prodSpuInfo = {.+}/
+			var pattern = /var prodSpuInfo = {.+}/;
 			if (pattern.test(element.textContent)) {
-				Z.debug(pattern.exec(element.textContent)[0])
+				Z.debug(pattern.exec(element.textContent)[0]);
 				eval(pattern.exec(element.textContent)[0]);
 				if (prodSpuInfo) {
-					var productId = prodSpuInfo.productId
-					var categoryPath = prodSpuInfo.categoryPath
-					var describeMap = prodSpuInfo.describeMap
-					var template = prodSpuInfo.template
-					var shopId = prodSpuInfo.shopId
-					var url0 = 'http://product.dangdang.com/index.php?r=callback%2Fdetail&productId=' + productId +
-					  '&templateType=' + template + '&describeMap=' + encodeURIComponent(describeMap) + '&shopId=' + shopId + '&categoryPath=' + categoryPath
+					var productId = prodSpuInfo.productId;
+					var categoryPath = prodSpuInfo.categoryPath;
+					var describeMap = prodSpuInfo.describeMap;
+					var template = prodSpuInfo.template;
+					var shopId = prodSpuInfo.shopId;
+					var url0 = 'http://product.dangdang.com/index.php?r=callback%2Fdetail&productId=' + productId
+					  + '&templateType=' + template + '&describeMap=' + encodeURIComponent(describeMap) + '&shopId=' + shopId + '&categoryPath=' + categoryPath;
 
 					var json = getContentsFromURL(url0);
 					if (json) {
-						var parser = new DOMParser()
-						var xml = parser.parseFromString(JSON.parse(json).data.html, 'text/html')
-						var content = xml.querySelector('#content')
+						var parser = new DOMParser();
+						var xml = parser.parseFromString(JSON.parse(json).data.html, 'text/html');
+						var content = xml.querySelector('#content');
 						if (content) {
 							newItem.abstractNote = content.innerText;
 						}
@@ -199,14 +201,11 @@ function scrapeSpc(document, url) {
 	
 	var span1 = document.querySelector('span[dd_name="全部评论"]');
 	var span2 = document.querySelector('span[dd_name="好评"]');
-	if( span1 && span2 && span1.innerText.match(/\d+/g) && span2.innerText.match(/\d+/g)) {
+	if (span1 && span2 && span1.innerText.match(/\d+/g) && span2.innerText.match(/\d+/g)) {
 		newItem.extra = span1.innerText.match(/\d+/g) + '/' + span2.innerText.match(/\d+/g);
 	}
 	newItem.complete();
 }
-
-
-
 
 
 /** BEGIN TEST CASES **/

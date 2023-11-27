@@ -36,7 +36,7 @@
 */
 var core = {
 	PKU: "北大《中文核心期刊要目总览》",
-	"北大核心": "北大《中文核心期刊要目总览》",
+	北大核心: "北大《中文核心期刊要目总览》",
 	ISTIC: "中国科技论文与引文数据库",
 	CSSCI: "中文社会科学引文索引",
 	NJU: "中文社会科学引文索引",
@@ -98,27 +98,27 @@ var nodeFieldMapper = {
 
 var nodeFieldMapperForMed = {
 	DOI: "DOI",
-	"关键词": addTagsForMed,
-	"主题词": addTagsForMed,
-	"作者": addCreatorsForMed,
-	"刊名": "publicationTitle",
+	关键词: addTagsForMed,
+	主题词: addTagsForMed,
+	作者: addCreatorsForMed,
+	刊名: "publicationTitle",
 	Journal: "journalAbbreviation",
 	"年，卷(期)": addDVI,
-	"页码": "pages",
-	"作者单位": "extra",
-	"基金项目": "extra",
-	"在线出版日期": "extra",
-	"学位年度": "date",
-	"学位授予单位": "university",
-	"授予学位": "thesisType",
-	"会议地点": "place",
-	"会议名称": "conferenceName",
-	"母体文献": "series",
-	"会议时间": "date",
-	"国别省市代码": "country",
-	"主申请人地址": "place",
-	"发布时间": "extra",
-	"期刊": addDVIForMed,
+	页码: "pages",
+	作者单位: "extra",
+	基金项目: "extra",
+	在线出版日期: "extra",
+	学位年度: "date",
+	学位授予单位: "university",
+	授予学位: "thesisType",
+	会议地点: "place",
+	会议名称: "conferenceName",
+	母体文献: "series",
+	会议时间: "date",
+	国别省市代码: "country",
+	主申请人地址: "place",
+	发布时间: "extra",
+	期刊: addDVIForMed,
 	"申请/专利号": "patentNumber",
 	"公开/公告号": "applicationNumber",
 	"申请/专利权人": "issuingAuthority",
@@ -138,11 +138,10 @@ function getText(node) {
 	function recursor(n) {
 		var i, a = [];
 		if (n.nodeType !== 3) {
-			if (n.childNodes)
-				for (i = 0; i < n.childNodes.length; ++i)
-					a = a.concat(recursor(n.childNodes[i]));
-		} else
-			if (n.data.trim()) a.push(n.data.trim());
+			if (n.childNodes) for (i = 0; i < n.childNodes.length; ++i) a = a.concat(recursor(n.childNodes[i]));
+		}
+		else
+		if (n.data.trim()) a.push(n.data.trim());
 		return a;
 	}
 	return recursor(node);
@@ -150,7 +149,7 @@ function getText(node) {
 
 
 function addTagsForMed(newItem, node) {
-	var temp = ZU.xpath(node, ".//a").map(e => ({ "tag": e.textContent.trim() }));
+	var temp = ZU.xpath(node, ".//a").map(e => ({ tag: e.textContent.trim() }));
 	newItem.tags = newItem.tags.concat(temp);
 }
 
@@ -187,14 +186,15 @@ function addPages(newItem, pages) {
 
 function fixCreator(name) {
 	name = name.trim();
-	var zhnamesplit = Z.getHiddenPref('zhnamesplit') === undefined ? true : false;
+	var zhnamesplit = Z.getHiddenPref('zhnamesplit') === undefined;
 	var creator = {};
 	var lastSpace = name.lastIndexOf(',');
-	if (name.search(/[A-Za-z]/) !== -1 && lastSpace !== -1) {
+	if (/[A-Za-z]/.test(name) && lastSpace !== -1) {
 		// western name. split on last space
 		creator.firstName = name.substr(0, lastSpace);
 		creator.lastName = name.substr(lastSpace + 1);
-	} else if (zhnamesplit) {
+	}
+	else if (zhnamesplit) {
 		// zhnamesplit is true, split firstname and lastname.
 		// Chinese name. first character is last name, the rest are first name
 		creator.firstName = name.substr(1);
@@ -208,12 +208,15 @@ function addCreatorsForMed(newItem, node) {
 		if (name.includes("[")) continue;
 		var creator = fixCreator(name);
 		if (getTextPair(node)[0].includes("导师")) {
-			creator.creatorType = "contributor"
-		} else if (getTextPair(node)[0].includes("发明")) {
+			creator.creatorType = "contributor";
+		}
+		else if (getTextPair(node)[0].includes("发明")) {
 			creator.creatorType = "inventor";
-		} else if (getTextPair(node)[0].includes("代理人")) {
+		}
+		else if (getTextPair(node)[0].includes("代理人")) {
 			creator.creatorType = "attorneyAgent";
-		} else {
+		}
+		else {
 			creator.creatorType = "author";
 		}
 		newItem.creators.push(creator);
@@ -224,7 +227,7 @@ var creatorTypeMap = {
 	"导师姓名：": "contributor",
 	"发明/设计人：": "inventor",
 	"代理人：": "attorneyAgent"
-}
+};
 
 function addCreators(newItem, creators) {
 	var creatorType = "author";
@@ -274,14 +277,15 @@ function scrape(doc) {
 		for (let node of nodes) {
 			var nodeTextPair = getTextPair(node);
 			// Z.debug(nodeTextPair);
-			if (nodeTextPair[0] == 'PMID') newItem.language = 'en';  // PMID for English article
+			if (nodeTextPair[0] == 'PMID') newItem.language = 'en'; // PMID for English article
 			if (nodeTextPair[0].trim() in nodeFieldMapperForMed) {
 				typeof nodeFieldMapperForMed[nodeTextPair[0]] == "string"
 					? addField(newItem, nodeFieldMapperForMed[nodeTextPair[0]], nodeTextPair[1].trim())
-					: nodeFieldMapperForMed[nodeTextPair[0]](newItem, node) // 调用函数处理
+					: nodeFieldMapperForMed[nodeTextPair[0]](newItem, node); // 调用函数处理
 			}
 		}
-	} else { // 万方数据
+	}
+	else { // 万方数据
 		for (let [k, v] of Object.entries(nodeFieldMapper)) {
 			var foundNodes = ZU.xpath(doc, k);
 			if (foundNodes.length == 0) continue;
@@ -302,7 +306,8 @@ function scrape(doc) {
 	if (newItem.abstractNote) newItem.abstractNote = newItem.abstractNote.replace(/^摘要：;/, "");
 	if (newItem.DOI) newItem.DOI = newItem.DOI.replace(/^DOI[:：];?\s?/, "");
 	if (newItem.itemType != 'thesis' && newItem.university) {
-		newItem.extra ? newItem.extra = newItem.extra + "\n地点：" + newItem.university
+		newItem.extra
+			? newItem.extra = newItem.extra + "\n地点：" + newItem.university
 			: newItem.extra = "地点：" + newItem.university;
 		newItem.university = "";
 	}
@@ -315,7 +320,7 @@ function scrape(doc) {
 			url: pdflink,
 			title: "Full Text PDF",
 			mimeType: "application/pdf"
-		})
+		});
 	}
 	newItem.complete();
 }
@@ -325,14 +330,15 @@ function scrape(doc) {
 function getIDFromURL(url) {
 	if (!url) return false;
 	var tmp, dbname, filename;
-	if (url.includes("Detail?id")) {  // For medical
-		tmp = url.match(/Detail\?id=(\w+)_(\w+)/)
-	} else {
+	if (url.includes("Detail?id")) { // For medical
+		tmp = url.match(/Detail\?id=(\w+)_(\w+)/);
+	}
+	else {
 		tmp = url.match(/\/(\w+)[\/_]([0-9a-zA-Z%\-]+)$/);
 	}
 	if (!tmp) return false;
 	dbname = tmp[1];
-	filename = tmp[2]
+	filename = tmp[2];
 	if (!getTypeFromDBName(dbname)) {
 		// http://med.wanfangdata.com.cn/
 		tmp = url.match(/id=(\w+)Paper_([0-9a-z]+)&/);
@@ -344,7 +350,8 @@ function getIDFromURL(url) {
 			dbname: getTypeFromDBName(dbname),
 			filename: filename, url: url
 		};
-	} else {
+	}
+	else {
 		return false;
 	}
 }
@@ -359,7 +366,7 @@ function getIDFromPage(doc, url) {
 	return {
 		dbname: getTypeFromDBName(tmp[1]),
 		filename: decodeURI(tmp[2]), url: url || `https://d.wanfangdata.com.cn/${hiddenId.replace("_", "/")}`
-	}
+	};
 }
 
 // database and item type match
@@ -375,7 +382,7 @@ function getTypeFromDBName(db) {
 		perio: "journalArticle",
 		degree: "thesis",
 		// tech: "report"
-		PeriodicalPaper: "journalArticle",  // For med
+		PeriodicalPaper: "journalArticle", // For med
 		DegreePaper: "thesis",
 		ConferencePaper: "conferencePaper",
 		standard: "statute",
@@ -383,7 +390,8 @@ function getTypeFromDBName(db) {
 	};
 	if (db) {
 		return dbType[db];
-	} else {
+	}
+	else {
 		return false;
 	}
 }
@@ -395,7 +403,8 @@ function detectWeb(doc, url) {
 	Z.debug(id);
 	if (id) {
 		return id.dbname;
-	} else {
+	}
+	else {
 		return false;
 	}
 }
@@ -405,7 +414,7 @@ function getSearchResults(doc, itemInfo) {
 	var found = false;
 	var rows = ZU.xpath(doc, "//div[@class='normal-list']");
 	if (!rows.length > 0) rows = doc.querySelectorAll("div.mod-results-list div.item");
-	var idx = 1
+	var idx = 1;
 	for (let row of rows) {
 		var title = ZU.xpath(row, ".//span[@class='title'] | .//div[@class='item-title']/a")[0];
 		var id = title.getAttribute("href") ? getIDFromURL(title.href) : getIDFromPage(row);
@@ -414,7 +423,7 @@ function getSearchResults(doc, itemInfo) {
 		// var id = getIDFromURL(href);
 		// Z.debug(id);
 		itemInfo[id.url] = id;
-		idx += 1
+		idx += 1;
 	}
 	// Z.debug(itemInfo);
 	return items;
@@ -427,7 +436,8 @@ function doWeb(doc, url) {
 		Z.selectItems(items, function (selectedItems) {
 			if (selectedItems) ZU.processDocuments(Object.keys(selectedItems), scrape);
 		});
-	} else {
+	}
+	else {
 		scrape(doc);
 	}
 }

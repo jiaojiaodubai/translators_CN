@@ -31,7 +31,7 @@
 */
 
 // Target regex for default search, advance search, detail page and journal articles pages.
-// Fetches RefWorks records text by provided ID 
+// Fetches RefWorks records text by provided ID
 // id should be in the form {dbname: "CDFDLAST2013", filename: "1013102302.nh"}
 async function getRefWorksByID(id) {
 	if (!id) return;
@@ -90,8 +90,7 @@ function getIDFromURL(url) {
 		|| !dbcode[1]
 		|| !dbname
 		|| !dbname[1]
-	)
-		return false;
+	) return false;
 	return { dbname: dbname[1], filename: filename[1], dbcode: dbcode[1], url: url };
 }
 
@@ -178,7 +177,8 @@ function getItemsFromSearchResults(doc, url, itemInfo) {
 				dbcode: td[1].getAttribute("data-dbname"),
 				url: itemUrl
 			};
-		} else {
+		}
+		else {
 			id.url = a.href;
 		}
 		// TODO: CAJ link has redirection
@@ -263,7 +263,8 @@ async function scrape(id, doc, extraData) {
 				title: "Snapshot",
 				document: doc
 			});
-		} else {
+		}
+		else {
 			newItem.attachments = getAttachments(doc, keepPDF);
 		}
 		let rightCite = doc.querySelector("div#right_part i.icon.icon-arrow");
@@ -296,7 +297,7 @@ async function scrape(id, doc, extraData) {
 			if (creator.firstName) continue;
 
 			var lastSpace = creator.lastName.lastIndexOf(' ');
-			if (creator.lastName.search(/[A-Za-z]/) !== -1 && lastSpace !== -1) {
+			if (/[A-Za-z]/.test(creator.lastName) && lastSpace !== -1) {
 				// western name. split on last space
 				creator.firstName = creator.lastName.substr(0, lastSpace);
 				creator.lastName = creator.lastName.substr(lastSpace + 1);
@@ -352,7 +353,8 @@ function getAttachments(doc, keepPDF) {
 			mimeType: "application/pdf",
 			url: pdfurl
 		});
-	} else {
+	}
+	else {
 		attachments.push({
 			title: "Full Text CAJ",
 			mimeType: "application/caj",

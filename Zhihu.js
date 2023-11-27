@@ -97,7 +97,7 @@ async function doWeb(doc, url) {
 		var itemInfo = {};
 		let selectedItems = await Zotero.selectItems(getSearchResults(doc, false, itemInfo));
 		await Promise.all(
-			Object.keys(selectedItems).map(url => {
+			Object.keys(selectedItems).map((url) => {
 				scrape(doc, itemInfo[url]);
 			}
 			)
@@ -110,11 +110,10 @@ async function doWeb(doc, url) {
 }
 
 async function scrape(doc, ZID) {
-
 	var { ztype, zid, url } = ZID;
 	var newItem = new Zotero.Item(ztype === 'answer' ? 'forumPost' : 'blogPost');
 	newItem.url = url;
-	if (ztype === 'answer') {  // For Zhihu answer
+	if (ztype === 'answer') { // For Zhihu answer
 		let html = await requestDocument(url);
 		newItem.postType = '知乎回答';
 		newItem.forumTitle = '知乎';
@@ -123,7 +122,8 @@ async function scrape(doc, ZID) {
 		noteContent = noteContent.replace(/<figure.*?<img src="(.*?)".*?<\/figure>/g, "<img src='$1'/>");
 		newItem.abstractNote = ZU.cleanTags(noteContent).slice(0, 150) + "...";
 		newItem.notes.push({ note: noteContent });
-		newItem.date = ZU.xpathText(html, "//span[@data-tooltip]").split(' ').slice(1).join(" ");
+		newItem.date = ZU.xpathText(html, "//span[@data-tooltip]").split(' ').slice(1)
+.join(" ");
 		newItem.websiteType = '知乎回答';
 		let authorMatch = innerText(html, "div.AuthorInfo-head a");
 		newItem.creators.push({ lastName: authorMatch ? authorMatch : '匿名用户', createType: 'author' });
@@ -132,7 +132,8 @@ async function scrape(doc, ZID) {
 		}
 		let vote = html.querySelector("button.Button.VoteButton.VoteButton--up").innerText.match("[0-9]+$");
 		if (vote) newItem.extra = `赞数:${vote[0]}`;
-	} else {  // For Zhihu blog post
+	}
+	else { // For Zhihu blog post
 		newItem.postType = '知乎专栏';
 		let targetUrl = urlHash[ztype] + zid;
 		var textJson = await requestJSON(targetUrl);
@@ -151,11 +152,11 @@ async function scrape(doc, ZID) {
 			textJson.topics.forEach(t => newItem.tags.push({ tag: t.name }));
 		}
 		newItem.extra = `赞数:${textJson.voteup_count};`;
-		// optimal DOM for zhuanlan post 
+		// optimal DOM for zhuanlan post
 		optimalDOM(doc);
 	}
 	newItem.language = 'zh-CN';
-	newItem.attachments.push({title: 'Snapshot', document: doc});
+	newItem.attachments.push({ title: 'Snapshot', document: doc });
 	newItem.attachments.push({ url: url, title: "Snapshot", document: doc });
 	newItem.complete();
 }
@@ -163,46 +164,46 @@ async function scrape(doc, ZID) {
 
 //Loop to delete the node
 function _delElem(elems) {
-  while (elems[0] != undefined) {
-    let parent = elems[0].parentElement
-    parent.removeChild(elems[0])
-  }
+	while (elems[0] != undefined) {
+		let parent = elems[0].parentElement;
+		parent.removeChild(elems[0]);
+	}
 }
 
 // Define delete function
 function delElemByClassName(doc, className) {
-  let elems = doc.getElementsByClassName(className)
-  _delElem(elems)
+	let elems = doc.getElementsByClassName(className);
+	_delElem(elems);
 }
 
 function load_lazy(doc) {
-  // Page scrolling speed (the time required to scroll through one screen height, the shorter the time, the faster).
-  // If there is slow internet speed, fast scrolling, and lazy loading images cannot be fully displayed, increase this number to try.
-  let scrollInterval = 100
-  let scrollHeight = doc.documentElement.scrollHeight
-  let clientHeight = doc.documentElement.clientHeight
-  let lastHeight = 0
-  let task = setInterval(function () {
-    if (lastHeight < scrollHeight) {
-      window.scrollTo(lastHeight, lastHeight + clientHeight)
-      lastHeight += clientHeight
-    } else {
-      clearInterval(task)
+	// Page scrolling speed (the time required to scroll through one screen height, the shorter the time, the faster).
+	// If there is slow internet speed, fast scrolling, and lazy loading images cannot be fully displayed, increase this number to try.
+	let scrollInterval = 100;
+	let scrollHeight = doc.documentElement.scrollHeight;
+	let clientHeight = doc.documentElement.clientHeight;
+	let lastHeight = 0;
+	let task = setInterval(function () {
+		if (lastHeight < scrollHeight) {
+			window.scrollTo(lastHeight, lastHeight + clientHeight);
+			lastHeight += clientHeight;
+		}
+		else {
+			clearInterval(task);
 			// After loading the image, delete the <noscript> tag.
-			let elems = doc.getElementsByTagName("noscript")
-			_delElem(elems)
-			
-    }
-  }, scrollInterval)
+			let elems = doc.getElementsByTagName("noscript");
+			_delElem(elems);
+		}
+	}, scrollInterval);
 }
 
 // Remove tag elements
 function delElemByTagName(doc, tagName) {
-  let noscriptElements = doc.getElementsByTagName(tagName)
-  for (var i = 0; i < noscriptElements.length; i++) {
-    var noscriptElement = noscriptElements[i];
-    noscriptElement.parentNode.removeChild(noscriptElement);
-  }
+	let noscriptElements = doc.getElementsByTagName(tagName);
+	for (var i = 0; i < noscriptElements.length; i++) {
+		var noscriptElement = noscriptElements[i];
+		noscriptElement.parentNode.removeChild(noscriptElement);
+	}
 }
 
 function beautifyHtml(doc) {
@@ -232,32 +233,32 @@ function beautifyHtml(doc) {
 
 
 function optimalDOM(doc) {
-  // Remove the top status bar.
-	delElemByClassName(doc, "ColumnPageHeader-Wrapper")
+	// Remove the top status bar.
+	delElemByClassName(doc, "ColumnPageHeader-Wrapper");
 	// Delete top image
-	delElemByClassName(doc, "css-78p1r9")
+	delElemByClassName(doc, "css-78p1r9");
 	// Delete follow button
-	delElemByClassName(doc, "FollowButton")
+	delElemByClassName(doc, "FollowButton");
 	// Delete the left directory.
-	delElemByClassName(doc, "Catalog")
+	delElemByClassName(doc, "Catalog");
 	// Remove bottom share.
-	delElemByClassName(doc, "Sticky")
+	delElemByClassName(doc, "Sticky");
 	// Delete return to top.
-	delElemByClassName(doc, "CornerButtons")
+	delElemByClassName(doc, "CornerButtons");
 	// Delete recommended reading
-	delElemByClassName(doc, "Recommendations-Main")
+	delElemByClassName(doc, "Recommendations-Main");
 	// Delete column
-	delElemByClassName(doc, "PostIndex-Contributions")
+	delElemByClassName(doc, "PostIndex-Contributions");
 	// Remove appreciation
-	delElemByClassName(doc, "Reward")
+	delElemByClassName(doc, "Reward");
 	// Delete topic
-	delElemByClassName(doc, "Post-topicsAndReviewer")
+	delElemByClassName(doc, "Post-topicsAndReviewer");
 	// beautify html
-	beautifyHtml(doc)
+	beautifyHtml(doc);
 	// Delete comment.
 	// delElemByClassName(doc, "Post-Sub Post-NormalSub")
-  // Scroll the page, load images
-  load_lazy(doc)
+	// Scroll the page, load images
+	load_lazy(doc);
 }
 
 

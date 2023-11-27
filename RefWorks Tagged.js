@@ -19,7 +19,7 @@
 
 /*This Translator mirrors closely Aurimas Vinckevicius' RIS translator
 It may have several relics from that translator that aren't necessary for Refworks,
-but since the formats are similar and having them in the translator won't hurt, I maintained them. 
+but since the formats are similar and having them in the translator won't hurt, I maintained them.
 Most commenting also refers to RIS
 The specifications are here:
 http://www.refworks.com/refworks2/help/RefWorks_Tagged_Format.htm
@@ -31,12 +31,11 @@ function detectImport() {
 	while ((line = Zotero.read()) !== false) {
 		line = line.replace(/^\s+/, "");
 		if (line != "") {
-			if (line.search(/^RT\s+./) != -1) {
+			if (/^RT\s+./.test(line)) {
 				return true;
-			} else {
-				if (i++ > 150) { //skip preamble
-					return false;
-				}
+			}
+			else if (i++ > 150) { //skip preamble
+				return false;
 			}
 		}
 	}
@@ -45,7 +44,7 @@ function detectImport() {
 /********************
  * Exported options *
  ********************/
- var exportedOptions = {
+var exportedOptions = {
 	itemType: false //allows translators to supply item type
 };
 
@@ -58,31 +57,31 @@ var DEFAULT_EXPORT_TYPE = 'Generic';
 var DEFAULT_IMPORT_TYPE = 'journalArticle';
 
 var exportTypeMap = {
-	artwork:"Artwork",
-	audioRecording:"Sound Recording", //consider MUSIC
-	bill:"Bills",
-	blogPost:"Web Page",
-	book:"Book, Whole",
-	bookSection:"Book, Section",
-	"case":"Case",
-	computerProgram:"Computer Program",
-	conferencePaper:"Conference Proceedings",
-	email:"Personal Communication",
-	film:"Motion Picture",
-	forumPost:"Online Discussion Forum",
-	hearing:"Hearing",
-	journalArticle:"Journal Article",
-	letter:"Personal Communication",
-	magazineArticle:"Magazine Article",
-	manuscript:"Unpublished Material",
-	map:"Map",
-	newspaperArticle:"Newspaper Article",
-	patent:"Patent",
-	report:"Report",
-	statute:"Statutes",
-	thesis:"Dissertation",
-	videoRecording:"Video",
-	webpage:"Web Page"
+	artwork: "Artwork",
+	audioRecording: "Sound Recording", //consider MUSIC
+	bill: "Bills",
+	blogPost: "Web Page",
+	book: "Book, Whole",
+	bookSection: "Book, Section",
+	case: "Case",
+	computerProgram: "Computer Program",
+	conferencePaper: "Conference Proceedings",
+	email: "Personal Communication",
+	film: "Motion Picture",
+	forumPost: "Online Discussion Forum",
+	hearing: "Hearing",
+	journalArticle: "Journal Article",
+	letter: "Personal Communication",
+	magazineArticle: "Magazine Article",
+	manuscript: "Unpublished Material",
+	map: "Map",
+	newspaperArticle: "Newspaper Article",
+	patent: "Patent",
+	report: "Report",
+	statute: "Statutes",
+	thesis: "Dissertation",
+	videoRecording: "Video",
+	webpage: "Web Page"
 };
 
 //These export type maps are degenerate
@@ -90,33 +89,33 @@ var exportTypeMap = {
 //These should either be duplicates of some of the RW types above
 //  or be different from the importTypeMap mappings
 var degenerateExportTypeMap = {
-	interview:"Personal Communication",
-	instantMessage:"Personal Communication",
-	tvBroadcast:"Motion Picture",
-	radioBroadcast:"Sound Recording",
-	presentation:"Report",
-	podcast:"Sound Recording",
-	dictionaryEntry:"Book, Section",
-	encyclopediaArticle:"Book, Section",
-	document:"Generic" //imported as journalArticle
+	interview: "Personal Communication",
+	instantMessage: "Personal Communication",
+	tvBroadcast: "Motion Picture",
+	radioBroadcast: "Sound Recording",
+	presentation: "Report",
+	podcast: "Sound Recording",
+	dictionaryEntry: "Book, Section",
+	encyclopediaArticle: "Book, Section",
+	document: "Generic" //imported as journalArticle
 };
 
 //These are degenerate types that are not exported as the same TY value
 //These should not include any types from exportTypeMap
 //We add the rest from exportTypeMap
 var importTypeMap = {
-	Abstract:"journalArticle",
-	"Book, Edited":"book",
-	"Court Decisions":"case",
-	DVD:"videoRecording",
-	Grant:"report", 
-	"Journal, Electronic":"journalArticle",
-	Laws:"statute",
-	Monograph:"book",
-	"Music Score":"audioRecording",
-	Resolutions:"bill",
-	"Thesis, Unpublished":"thesis",
-	Thesis:"thesis"
+	Abstract: "journalArticle",
+	"Book, Edited": "book",
+	"Court Decisions": "case",
+	DVD: "videoRecording",
+	Grant: "report",
+	"Journal, Electronic": "journalArticle",
+	Laws: "statute",
+	Monograph: "book",
+	"Music Score": "audioRecording",
+	Resolutions: "bill",
+	"Thesis, Unpublished": "thesis",
+	Thesis: "thesis"
 };
 
 
@@ -140,19 +139,19 @@ for (ty in degenerateExportTypeMap) {
 //(except for item types that do not have unique RW types, see above)
 var fieldMap = {
 	//same for all itemTypes
-	AB:"abstractNote",
-	CN:"callNumber",
-	DO:"DOI",
-	SL:"archive",
-	LL:"archiveLocation",
-	IS:"issue",
-	JO:"journalAbbreviation",
-	K1:"tags",
-	LK:"attachments/other",
-	NO:"notes",
-	ST:"shortTitle",
-	RD:"accessDate",
-	UL:"url",
+	AB: "abstractNote",
+	CN: "callNumber",
+	DO: "DOI",
+	SL: "archive",
+	LL: "archiveLocation",
+	IS: "issue",
+	JO: "journalAbbreviation",
+	K1: "tags",
+	LK: "attachments/other",
+	NO: "notes",
+	ST: "shortTitle",
+	RD: "accessDate",
+	UL: "url",
 
 
 	//type specific
@@ -160,170 +159,170 @@ var fieldMap = {
 	//if itemType not explicitly given, __default field is used
 	//  unless itemType is excluded in __exclude
 	T1: {
-		"__default":"title",
-		subject:["email"],
-		caseName:["case"],
-		nameOfAct:["statute"]
+		__default: "title",
+		subject: ["email"],
+		caseName: ["case"],
+		nameOfAct: ["statute"]
 	},
 	T2: {
-		code:["bill", "statute"],
-		bookTitle:["bookSection"],
-		blogTitle:["blogPost"],
-		conferenceName:["conferencePaper"],
-		dictionaryTitle:["dictionaryEntry"],
-		encyclopediaTitle:["encyclopediaArticle"],
-		committee:["hearing"],
-		forumTitle:["forumPost"],
-		websiteTitle:["webpage"],
-		programTitle:["radioBroadcast", "tvBroadcast"],
-		meetingName:["presentation"],
-		seriesTitle:["computerProgram", "map", "report"],
+		code: ["bill", "statute"],
+		bookTitle: ["bookSection"],
+		blogTitle: ["blogPost"],
+		conferenceName: ["conferencePaper"],
+		dictionaryTitle: ["dictionaryEntry"],
+		encyclopediaTitle: ["encyclopediaArticle"],
+		committee: ["hearing"],
+		forumTitle: ["forumPost"],
+		websiteTitle: ["webpage"],
+		programTitle: ["radioBroadcast", "tvBroadcast"],
+		meetingName: ["presentation"],
+		seriesTitle: ["computerProgram", "map", "report"],
 		series: ["book"],
-		publicationTitle:["journalArticle", "magazineArticle", "newspaperArticle"]
+		publicationTitle: ["journalArticle", "magazineArticle", "newspaperArticle"]
 	},
 	T3: {
-		legislativeBody:["hearing", "bill"],
-		series:["bookSection", "conferencePaper"],
-		seriesTitle:["audioRecording"]
+		legislativeBody: ["hearing", "bill"],
+		series: ["bookSection", "conferencePaper"],
+		seriesTitle: ["audioRecording"]
 	},
 	//NOT HANDLED: reviewedAuthor, scriptwriter, contributor, guest
 	A1: {
-		"__default":"creators/author",
-		"creators/artist":["artwork"],
-		"creators/cartographer":["map"],
-		"creators/composer":["audioRecording"],
-		"creators/director":["film", "radioBroadcast", "tvBroadcast", "videoRecording"], //this clashes with audioRecording
-		"creators/interviewee":["interview"],
-		"creators/inventor":["patent"],
-		"creators/podcaster":["podcast"],
-		"creators/programmer":["computerProgram"]
+		__default: "creators/author",
+		"creators/artist": ["artwork"],
+		"creators/cartographer": ["map"],
+		"creators/composer": ["audioRecording"],
+		"creators/director": ["film", "radioBroadcast", "tvBroadcast", "videoRecording"], //this clashes with audioRecording
+		"creators/interviewee": ["interview"],
+		"creators/inventor": ["patent"],
+		"creators/podcaster": ["podcast"],
+		"creators/programmer": ["computerProgram"]
 	},
 	A2: {
-		"creators/sponsor":["bill"],
-		"creators/performer":["audioRecording"],
-		"creators/presenter":["presentation"],
-		"creators/interviewer":["interview"],
-		"creators/editor":["journalArticle", "bookSection", "conferencePaper", "dictionaryEntry", "document", "encyclopediaArticle"],
-		"creators/seriesEditor":["book"],
-		"creators/recipient":["email", "instantMessage", "letter"],
-		reporter:["case"],
-		issuingAuthority:["patent"]
+		"creators/sponsor": ["bill"],
+		"creators/performer": ["audioRecording"],
+		"creators/presenter": ["presentation"],
+		"creators/interviewer": ["interview"],
+		"creators/editor": ["journalArticle", "bookSection", "conferencePaper", "dictionaryEntry", "document", "encyclopediaArticle"],
+		"creators/seriesEditor": ["book"],
+		"creators/recipient": ["email", "instantMessage", "letter"],
+		reporter: ["case"],
+		issuingAuthority: ["patent"]
 	},
 	A3: {
-		"creators/cosponsor":["bill"],
-		"creators/producer":["film", "tvBroadcast", "videoRecording", "radioBroadcast"],
-		"creators/editor":["book"],
-		"creators/seriesEditor":["bookSection", "conferencePaper", "dictionaryEntry", "encyclopediaArticle", "map", "report"]
+		"creators/cosponsor": ["bill"],
+		"creators/producer": ["film", "tvBroadcast", "videoRecording", "radioBroadcast"],
+		"creators/editor": ["book"],
+		"creators/seriesEditor": ["bookSection", "conferencePaper", "dictionaryEntry", "encyclopediaArticle", "map", "report"]
 	},
 	A4: {
-		"__default":"creators/translator",
-		"creators/counsel":["case"],
-		"creators/contributor":["conferencePaper", "film"]	//translator does not fit these
+		__default: "creators/translator",
+		"creators/counsel": ["case"],
+		"creators/contributor": ["conferencePaper", "film"]	//translator does not fit these
 	},
 	U1: {
-		filingDate:["patent"], //not in spec
-		"creators/castMember":["radioBroadcast", "tvBroadcast", "videoRecording"],
-		scale:["map"],
-		place:["conferencePaper"]
+		filingDate: ["patent"], //not in spec
+		"creators/castMember": ["radioBroadcast", "tvBroadcast", "videoRecording"],
+		scale: ["map"],
+		place: ["conferencePaper"]
 	},
 	U2: {
-		issueDate:["patent"], //not in spec
-		"creators/bookAuthor":["bookSection"],
-		"creators/commenter":["blogPost"]
+		issueDate: ["patent"], //not in spec
+		"creators/bookAuthor": ["bookSection"],
+		"creators/commenter": ["blogPost"]
 	},
 	U3: {
-		artworkSize:["artwork"],
-		proceedingsTitle:["conferencePaper"],
-		country:["patent"]
+		artworkSize: ["artwork"],
+		proceedingsTitle: ["conferencePaper"],
+		country: ["patent"]
 	},
 	U4: {
-		"creators/wordsBy":["audioRecording"], //not in spec
-		"creators/attorneyAgent":["patent"],
-		genre:["film"]
+		"creators/wordsBy": ["audioRecording"], //not in spec
+		"creators/attorneyAgent": ["patent"],
+		genre: ["film"]
 	},
 	U5: {
-		references:["patent"],
-		audioRecordingFormat:["audioRecording", "radioBroadcast"],
-		videoRecordingFormat:["film", "tvBroadcast", "videoRecording"]
-	},	
+		references: ["patent"],
+		audioRecordingFormat: ["audioRecording", "radioBroadcast"],
+		videoRecordingFormat: ["film", "tvBroadcast", "videoRecording"]
+	},
 	U6: {
-		legalStatus:["patent"],
+		legalStatus: ["patent"],
 	},
 	PP: {
-		"__default":"place",
-		"__exclude":["conferencePaper"] //should be exported as C1
+		__default: "place",
+		__exclude: ["conferencePaper"] //should be exported as C1
 	},
 	FD: {
-		"__default":"date",
-		dateEnacted:["statute"],
-		dateDecided:["case"],
-		issueDate:["patent"]
+		__default: "date",
+		dateEnacted: ["statute"],
+		dateDecided: ["case"],
+		issueDate: ["patent"]
 	},
 	ED: {
-		"__default":"edition",
-		session:["bill", "hearing", "statute"],
-		version:["computerProgram"]
+		__default: "edition",
+		session: ["bill", "hearing", "statute"],
+		version: ["computerProgram"]
 	},
 	LA: {
-		"__default":"language",
+		__default: "language",
 		programmingLanguage: ["computerProgram"]
 	},
 	CL: {
-		billNumber:["bill"],
-		system:["computerProgram"],
-		documentNumber:["hearing"],
-		applicationNumber:["patent"],
-		publicLawNumber:["statute"],
-		episodeNumber:["podcast", "radioBroadcast", "tvBroadcast"],
-		manuscriptType:["manuscript"],
-		mapType:["map"],
-		reportType:["report"],
-		thesisType:["thesis"],
-		websiteType:["blogPost", "webpage"],
-		postType:["forumPost"],
-		letterType:["letter"],
-		interviewMedium:["interview"],
-		presentationType:["presentation"],
-		artworkMedium:["artwork"],
-		audioFileType:["podcast"]
+		billNumber: ["bill"],
+		system: ["computerProgram"],
+		documentNumber: ["hearing"],
+		applicationNumber: ["patent"],
+		publicLawNumber: ["statute"],
+		episodeNumber: ["podcast", "radioBroadcast", "tvBroadcast"],
+		manuscriptType: ["manuscript"],
+		mapType: ["map"],
+		reportType: ["report"],
+		thesisType: ["thesis"],
+		websiteType: ["blogPost", "webpage"],
+		postType: ["forumPost"],
+		letterType: ["letter"],
+		interviewMedium: ["interview"],
+		presentationType: ["presentation"],
+		artworkMedium: ["artwork"],
+		audioFileType: ["podcast"]
 	},
 	PB: {
-		"__default":"publisher",
-		label:["audioRecording"],
-		court:["case"],
-		distributor:["film"],
-		assignee:["patent"],
-		institution:["report"],
-		university:["thesis"],
-		company:["computerProgram"],
-		studio:["videoRecording"],
-		network:["radioBroadcast", "tvBroadcast"]
+		__default: "publisher",
+		label: ["audioRecording"],
+		court: ["case"],
+		distributor: ["film"],
+		assignee: ["patent"],
+		institution: ["report"],
+		university: ["thesis"],
+		company: ["computerProgram"],
+		studio: ["videoRecording"],
+		network: ["radioBroadcast", "tvBroadcast"]
 	},
 	YR: { //duplicate of DA, but this will only output year
-		"__default":"date",
-		dateEnacted:["statute"],
-		dateDecided:["case"],
-		issueDate:["patent"]
+		__default: "date",
+		dateEnacted: ["statute"],
+		dateDecided: ["case"],
+		issueDate: ["patent"]
 	},
 	SN: {
-		"__default":"ISBN",
-		ISSN:["journalArticle", "magazineArticle", "newspaperArticle"],
-		patentNumber:["patent"],
-		reportNumber:["report"],
+		__default: "ISBN",
+		ISSN: ["journalArticle", "magazineArticle", "newspaperArticle"],
+		patentNumber: ["patent"],
+		reportNumber: ["report"],
 	},
 	SP: {
-		"__default":"pages", //needs extra processing
-		codePages:["bill"], //bill
-		numPages:["book", "thesis", "manuscript"], //manuscript not really in spec
-		firstPage:["case"],
-		runningTime:["film"]
+		__default: "pages", //needs extra processing
+		codePages: ["bill"], //bill
+		numPages: ["book", "thesis", "manuscript"], //manuscript not really in spec
+		firstPage: ["case"],
+		runningTime: ["film"]
 	},
 	VO: {
-		"__default":"volume",
-		codeNumber:["statute"],
-		codeVolume:["bill"],
-		reporterVolume:["case"],
-		"__exclude":["patent"]
+		__default: "volume",
+		codeNumber: ["statute"],
+		codeVolume: ["bill"],
+		reporterVolume: ["case"],
+		__exclude: ["patent"]
 	}
 };
 
@@ -334,7 +333,7 @@ var degenerateImportFieldMap = {
 	OP: "pages",
 	JF: "publicationTitle",
 	JO: {
-		"__default": "journalAbbreviation",
+		__default: "journalAbbreviation",
 		conferenceName: ["conferencePaper"]
 	},
 	T2: "backupPublicationTitle", //most item types should be covered above
@@ -345,12 +344,12 @@ var degenerateImportFieldMap = {
 
 //generic tag mapping object with caching
 //not intended to be used directly
-var TagMapper = function(mapList) {
+var TagMapper = function (mapList) {
 	this.cache = {};
 	this.mapList = mapList;
 };
 
-TagMapper.prototype.getFields = function(itemType, tag) {
+TagMapper.prototype.getFields = function (itemType, tag) {
 	if (!this.cache[itemType]) this.cache[itemType] = {};
 
 	//retrieve from cache if available
@@ -359,10 +358,10 @@ TagMapper.prototype.getFields = function(itemType, tag) {
 	}
 
 	var fields = [];
-	for (var i=0, n=this.mapList.length; i<n; i++) {
+	for (var i = 0, n = this.mapList.length; i < n; i++) {
 		var map = this.mapList[i];
 		var field;
-		if (typeof(map[tag]) == 'object') {
+		if (typeof (map[tag]) == 'object') {
 			var def, exclude = false;
 			for (var f in map[tag]) {
 				if (f == "__default") {
@@ -371,19 +370,20 @@ TagMapper.prototype.getFields = function(itemType, tag) {
 				}
 
 				if (f == "__exclude") {
-					if (map[tag][f].indexOf(itemType) != -1) {
+					if (map[tag][f].contains(itemType)) {
 						exclude = true;
 					}
 					continue;
 				}
 
-				if (map[tag][f].indexOf(itemType) != -1) {
+				if (map[tag][f].contains(itemType)) {
 					field = f;
 				}
 			}
 
 			if (!field && def && !exclude) field = def;
-		} else if (typeof(map[tag]) == 'string') {
+		}
+		else if (typeof (map[tag]) == 'string') {
 			field = map[tag];
 		}
 
@@ -430,28 +430,31 @@ function processTag(item, entry) {
 			if (item.title == value) {
 				value = undefined;
 			//do some HTML formatting in non-HTML notes
-			} else if (!value.match(/<[^>]+>/)) { //from cleanTags
+			}
+			else if (!value.match(/<[^>]+>/)) { //from cleanTags
 				value = '<p>'
 					+ value.replace(/\n\n/g, '</p><p>')
 					 .replace(/\n/g, '<br/>')
 					 .replace(/\t/g, '&nbsp;&nbsp;&nbsp;&nbsp;')
-					 .replace(/  /g, '&nbsp;&nbsp;')
+					 .replace(/ {2}/g, '&nbsp;&nbsp;')
 					+ '</p>';
 			}
-		break;
+			break;
 		case "OP":
 			if (item.pages) {
-				if (item.pages.indexOf('-') == -1) {
+				if (!(item.pages.contains('-'))) {
 					item.pages = item.pages + '-' + value;
-				} else {
+				}
+				else {
 					item.backupNumPages = value;
 				}
 				value = undefined;
-			} else {
+			}
+			else {
 				item.backupEndPage = value;	//store this for an odd case where SP comes after OP
 				value = undefined;
 			}
-		break;
+			break;
 		//See how YR works compared to other date formats
 		case "YR":
 			item.backupDate = {
@@ -460,20 +463,20 @@ function processTag(item, entry) {
 			};
 			value = undefined;
 			processFields = false;
-		break;
+			break;
 	}
 
 	//zField based manipulations
-	if (processFields){
+	if (processFields) {
 		switch (zField[0]) {
 			case "backupPublicationTitle":
 				item.backupPublicationTitle = value;
 				value = undefined;
-			break;
+				break;
 			case "creators":
 				var creator = value.split(/\s*,\s*/);
-				value = {lastName: creator[0], firstName:creator[1], creatorType:zField[1]};
-			break;
+				value = { lastName: creator[0], firstName: creator[1], creatorType: zField[1] };
+				break;
 			case "date":
 			case "accessDate":
 			case "filingDate":
@@ -481,7 +484,7 @@ function processTag(item, entry) {
 			case "dateEnacted":
 			case "dateDecided":
 				value = dateRWtoZotero(value);
-			break;
+				break;
 			case "tags":
 				//allow new lines or semicolons. Commas, might be more problematic
 				value = value.split(/\s*(?:[\r\n]+\s*)+|\s*(?:;\s*)+/);
@@ -490,34 +493,34 @@ function processTag(item, entry) {
 				//but it will still allow a blank tag if there is a newline or
 				//semicolon at the begining or the end
 				if (!value[0]) value.shift();
-				if (value.length && !value[value.length-1]) value.pop();
+				if (value.length && !value[value.length - 1]) value.pop();
 
 				if (!value.length) {
 					value = undefined;
 				}
-			break;
+				break;
 			case "notes":
-				value = {note:value};
+				value = { note: value };
 				//we can specify note title in the field mapping table. See VL for patent
 				if (zField[1]) {
 					value.note = zField[1] + ': ' + value.note;
 				}
-			break;
+				break;
 			case "attachments":
 				var domain = value.match(/^https?:\/\/([^\/]+)/i);
 				domain = domain ? domain[1] + ' ' : '';
 				value = {
-					path:value,
+					path: value,
 					title: domain + 'Link',
 					mimeType: 'text/html'
 				};
-			break;
+				break;
 			case "unsupported":	//unsupported fields
 				//we can convert a RIS tag to something more useful though
 				if (zField[1]) {
 					value = zField[1] + ': ' + value;
 				}
-			break;
+				break;
 		}
 	}
 
@@ -566,22 +569,24 @@ function applyValue(item, zField, value, rawLine) {
 				value = [value];
 			}
 			item[zField] = item[zField].concat(value);
-		break;
+			break;
 		case 'extra':
 			if (item.extra) {
 				item.extra += '; ' + value;
-			} else {
+			}
+			else {
 				item.extra = value;
 			}
-		break;
+			break;
 		default:
 			//check if value already exists
 			if (item[zField]) {
 				//if it's not the new value is not the same as existing value, store it as note
 				if (!Zotero.parentTranslator && item[zField] != value) {
-					item.notes.push({note:rawLine});
+					item.notes.push({ note: rawLine });
 				}
-			} else {
+			}
+			else {
 				item[zField] = value;
 			}
 	}
@@ -595,12 +600,12 @@ function dateRWtoZotero(risDate) {
 
 	//sometimes unknown parts of date are given as 0. Drop these and anything that follows
 	var i;
-	for (i=0; i<3; i++) {
+	for (i = 0; i < 3; i++) {
 		if (!value[i] || !parseInt(value[i], 10)) {
 			break;
 		}
 	}
-	for (; i<3; i++) {
+	for (; i < 3; i++) {
 		value[i] = undefined;
 	}
 
@@ -610,11 +615,11 @@ function dateRWtoZotero(risDate) {
 		if (value[1]) value[1]--;
 	}
 	return ZU.formatDate({
-			'year': value[0],
-			'month': value[1],
-			'day': value[2],
-			'part': value[3]
-		});
+		year: value[0],
+		month: value[1],
+		day: value[2],
+		part: value[3]
+	});
 }
 
 function completeItem(item) {
@@ -637,9 +642,11 @@ function completeItem(item) {
 	if (item.backupEndPage) {
 		if (!item.pages) {
 			item.pages = item.backupEndPage;
-		} else if (item.pages.indexOf('-') == -1) {
+		}
+		else if (!(item.pages.contains('-'))) {
 			item.pages += '-' + item.backupEndPage;
-		} else if (!item.numPages) {	//should we do this?
+		}
+		else if (!item.numPages) {	//should we do this?
 			item.numPages = item.backupEndPage;
 		}
 		item.backupEndPage = undefined;
@@ -651,7 +658,7 @@ function completeItem(item) {
 			item[item.backupDate.field] = item.backupDate.value;
 		}
 		//in RW the freeform date field seems to often lack the year - take that from the year field.
-		else if (item[item.backupDate.field].search(/\d{4}/) == -1){
+		else if (!(/\d{4}/.test(item[item.backupDate.field]))) {
 			item[item.backupDate.field] = item[item.backupDate.field] + " " + item.backupDate.value;
 		}
 		item.backupDate = undefined;
@@ -663,12 +670,12 @@ function completeItem(item) {
 	}
 
 	// hack for sites like Nature, which only use JA, journal abbreviation
-	if (item.journalAbbreviation && !item.publicationTitle){
+	if (item.journalAbbreviation && !item.publicationTitle) {
 		item.publicationTitle = item.journalAbbreviation;
 	}
 
 	// Hack for Endnote exports missing full title
-	if (item.shortTitle && !item.title){
+	if (item.shortTitle && !item.title) {
 		item.title = item.shortTitle;
 	}
 
@@ -677,7 +684,7 @@ function completeItem(item) {
 	if (item.tags.length == 1) {
 		item.tags = item.tags[0].split(/\s*(?:,\s*)+/);
 		if (!item.tags[0]) item.tags.shift();
-		if (item.tags.length && !item.tags[item.tags.length-1]) item.tags.pop();
+		if (item.tags.length && !item.tags[item.tags.length - 1]) item.tags.pop();
 	}
 
 	//don't pass access date if this is called from (most likely) a web translator
@@ -685,19 +692,19 @@ function completeItem(item) {
 		item.accessDate = undefined;
 	}
 
-//store unsupported and unknown fields in a single note
+	//store unsupported and unknown fields in a single note
 	if (!Zotero.parentTranslator) {
 		var note = '';
-		for (var i=0, n=item.unsupportedFields.length; i<n; i++) {
+		for (var i = 0, n = item.unsupportedFields.length; i < n; i++) {
 			note += item.unsupportedFields[i] + '<br/>';
 		}
-		for (var i=0, n=item.unknownFields.length; i<n; i++) {
+		for (var i = 0, n = item.unknownFields.length; i < n; i++) {
 			note += item.unknownFields[i] + '<br/>';
 		}
 	
 		if (note) {
 			note = "The following values have no corresponding Zotero field:<br/>" + note;
-			item.notes.push({note: note.trim(), tags: ['_RW import']});
+			item.notes.push({ note: note.trim(), tags: ['_RW import'] });
 		}
 	}
 	item.unsupportedFields = undefined;
@@ -730,13 +737,15 @@ function getLine() {
 			return entry;
 
 		//otherwise this is a new entry
-		} else if (temp) {
+		}
+		else if (temp) {
 			entry = temp;
 			lastLineLength = entry[2].length;
 
 		//if this line didn't match, then we just attach it to the current value
 		//Try to figure out if this is supposed to be on a new line or not
-		} else if (entry) {
+		}
+		else if (entry) {
 			//new lines would probably only be meaningful in notes and abstracts
 			if (entry[1] == 'AB' || entry[1] == 'NO') {
 				//if previous line was short, this would probably be on a new line
@@ -752,7 +761,7 @@ function getLine() {
 			}
 
 			//check if we need to add a space
-			if (entry[2].substr(entry[2].length-1) != ' ') {
+			if (entry[2].substr(entry[2].length - 1) != ' ') {
 				nextLine = ' ' + nextLine;
 			}
 
@@ -767,12 +776,12 @@ function getLine() {
 //creates a new item of specified type
 function getNewItem(type) {
 	var item = new Zotero.Item(type);
-			item.unknownFields = [];
-			item.unsupportedFields = [];
+	item.unknownFields = [];
+	item.unsupportedFields = [];
 	return item;
 }
 
-function doImport(attachments){
+function doImport(attachments) {
 	var entry;
 	//skip to the first RT entry
 	do {
@@ -797,7 +806,7 @@ function doImport(attachments){
 				if (attachments && attachments[i]) {
 					item.attachments = attachments[i];
 				}
-			break;
+				break;
 			default:
 				processTag(item, entry);
 		}
@@ -813,13 +822,81 @@ function doImport(attachments){
 //[Not sure if this is true for RW but doesn't hurt] RW files have a certain structure, which is often meaningful
 //Records always start with RT. This is hardcoded below
 var exportOrder = {
-	"__default": ["T1", "A1", "T2", "A2", "T3", "A3", "A4", "AB", "U1", "U2", "U3",
-	"U4", "U5", "U6", "CN", "PP", "FD", "YR", "DO", "SL", "LL", "ED", "VO", "IS", "SP", "OP,",
-	"JO", "LA", "CL",  "PB",  "SN", "ST", "UL", "RD", "LK", "NO", "K1"],
+	__default: ["T1",
+		"A1",
+		"T2",
+		"A2",
+		"T3",
+		"A3",
+		"A4",
+		"AB",
+		"U1",
+		"U2",
+		"U3",
+		"U4",
+		"U5",
+		"U6",
+		"CN",
+		"PP",
+		"FD",
+		"YR",
+		"DO",
+		"SL",
+		"LL",
+		"ED",
+		"VO",
+		"IS",
+		"SP",
+		"OP,",
+		"JO",
+		"LA",
+		"CL",
+		"PB",
+		"SN",
+		"ST",
+		"UL",
+		"RD",
+		"LK",
+		"NO",
+		"K1"],
 	//in bill sponsor (A2) and cosponsor (A3) should be together and not split by legislativeBody (T3)
-	"bill": ["T1", "A1", "T2", "A2", "A3", "T3", "A4", "AB", "U1", "U2", "U3",
-	"U4", "U5", "U6", "CN", "PP", "FD", "YR", "DO", "SL", "LL", "ED", "VO", "IS", "SP", "OP",
-	"JO", "LA", "CL",  "PB", "SN", "ST", "UL", "RD", "LK", "NO", "K1"]
+	bill: ["T1",
+		"A1",
+		"T2",
+		"A2",
+		"A3",
+		"T3",
+		"A4",
+		"AB",
+		"U1",
+		"U2",
+		"U3",
+		"U4",
+		"U5",
+		"U6",
+		"CN",
+		"PP",
+		"FD",
+		"YR",
+		"DO",
+		"SL",
+		"LL",
+		"ED",
+		"VO",
+		"IS",
+		"SP",
+		"OP",
+		"JO",
+		"LA",
+		"CL",
+		"PB",
+		"SN",
+		"ST",
+		"UL",
+		"RD",
+		"LK",
+		"NO",
+		"K1"]
 };
 
 var newLineChar = "\r\n"; //from spec
@@ -830,7 +907,7 @@ var exportFields = new TagMapper([fieldMap]);
 function addTag(tag, value) {
 	if (!(value instanceof Array)) value = [value];
 
-	for (var i=0, n=value.length; i<n; i++) {
+	for (var i = 0, n = value.length; i < n; i++) {
 		if (value[i] === undefined) return;
 		//don't export empty strings
 		var v = (value[i] + '').trim();
@@ -864,21 +941,21 @@ function doExport() {
 			other: []
 		};
 
-		for (var i=0, n=item.attachments.length; i<n; i++) {
+		for (var i = 0, n = item.attachments.length; i < n; i++) {
 			switch (item.attachments[i].mimeType) {
 				case 'application/pdf':
 					attachments.PDF.push(item.attachments[i]);
-				break;
+					break;
 				case 'text/html':
 					attachments.HTML.push(item.attachments[i]);
-				break;
+					break;
 				default:
 					attachments.other.push(item.attachments[i]);
 			}
 		}
 
-		order = exportOrder[item.itemType] || exportOrder["__default"];
-		for (var i=0, n=order.length; i<n; i++) {
+		order = exportOrder[item.itemType] || exportOrder.__default;
+		for (var i = 0, n = order.length; i < n; i++) {
 			tag = order[i];
 			//find the appropriate field to export for this item type
 			field = exportFields.getFields(item.itemType, tag)[0];
@@ -897,7 +974,7 @@ function doExport() {
 					//Zotero does not store suffixes in a separate field
 					value = [];
 					var name;
-					for (var j=0, m=item.creators.length; j<m; j++) {
+					for (var j = 0, m = item.creators.length; j < m; j++) {
 						name = [];
 						if (item.creators[j].creatorType == field[1]) {
 							name.push(item.creators[j].lastName);
@@ -906,25 +983,30 @@ function doExport() {
 						}
 					}
 					if (!value.length) value = undefined;
-				break;
+					break;
 				case "notes":
-					value = item.notes.map(function(n) { return n.note.replace(/(?:\r\n?|\n)/g, "\r\n"); });
-				break;
+					value = item.notes.map(function (n) {
+						return n.note.replace(/(?:\r\n?|\n)/g, "\r\n");
+					});
+					break;
 				case "tags":
-					value = item.tags.map(function(t) { return t.tag; });
-				break;
+					value = item.tags.map(function (t) {
+						return t.tag;
+					});
+					break;
 				case "attachments":
 					value = [];
 					var att = attachments[field[1]];
-					for (var j=0, m=att.length; j<m; j++) {
+					for (var j = 0, m = att.length; j < m; j++) {
 						if (att[j].saveFile) {	//local file
 							value.push(att[j].defaultPath);
 							att[j].saveFile(att[j].defaultPath);
-						} else {	//link to remote file
+						}
+						else {	//link to remote file
 							value.push(att[j].url);
 						}
 					}
-				break;
+					break;
 				case "pages":
 					if (tag == "SP" && item.pages) {
 						var m = item.pages.trim().match(/(.+?)[\u002D\u00AD\u2010-\u2015\u2212\u2E3A\u2E3B\s]+(.+)/);
@@ -934,7 +1016,7 @@ function doExport() {
 							value = m[2];
 						}
 					}
-				break;
+					break;
 				default:
 					value = item[field];
 			}
@@ -945,23 +1027,25 @@ function doExport() {
 					var date = ZU.strToDate(item[field]);
 					if (date.year) {
 						value = ('000' + date.year).substr(-4); //since this is in export, this should not be a problem with MS JavaScript implementation of substr
-					} else {
+					}
+					else {
 						value = item[field];
-					} 
-				break;
+					}
+					break;
 				case "RD":
 					var date = ZU.strToDate(item[field]);
 					if (date.year) {
 						date.year = ('000' + date.year).substr(-4);
-						date.month = (date.month || date.month===0 || date.month==="0")?('0' + (date.month+1)).substr(-2):'';
-						date.day = date.day?('0' + date.day).substr(-2):'';
+						date.month = (date.month || date.month === 0 || date.month === "0") ? ('0' + (date.month + 1)).substr(-2) : '';
+						date.day = date.day ? ('0' + date.day).substr(-2) : '';
 						if (!date.part) date.part = '';
 	
 						value = date.year + '/' + date.month + '/' + date.day + '/' + date.part;
-					} else {
+					}
+					else {
 						value = item[field];
 					}
-				break;
+					break;
 			}
 
 			addTag(tag, value);
@@ -972,10 +1056,11 @@ function doExport() {
 }
 
 var exports = {
-	"doExport": doExport,
-	"doImport": doImport,
-	"options": exportedOptions
-}
+	doExport: doExport,
+	doImport: doImport,
+	options: exportedOptions
+};
+
 /** BEGIN TEST CASES **/
 var testCases = [
 	{

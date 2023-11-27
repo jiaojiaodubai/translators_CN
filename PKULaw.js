@@ -125,12 +125,12 @@ function scrapeStatute(doc, url) {
 		dbId = doc.querySelector('#DbId').value;
 	}
 	switch (dbId) {
-		case 'lar':  // 地方法规
+		case 'lar': // 地方法规
 			extraFields.Type = 'regulation';
-			break
-		case 'eagn':  // 地方法规
+			break;
+		case 'eagn': // 地方法规
 			extraFields.Type = 'treaty';
-			break
+			break;
 	}
 
 	item.language = 'zh-CN';

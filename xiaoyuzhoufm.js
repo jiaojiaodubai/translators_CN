@@ -45,7 +45,7 @@ function doWeb(doc, url) {
 		item.accessDate = ZU.strToISO(data.datePublished);
 		item.seriesTitle = data.partOfSeries.name;
 		// 暂时先把作者直接设定为播客名称，添加完毕之后可以手动修改
-		item.creators = [{ lastName: data.partOfSeries.name, creatorType: "podcaster", fieldMode: 1 }]
+		item.creators = [{ lastName: data.partOfSeries.name, creatorType: "podcaster", fieldMode: 1 }];
 		item.url = data.url;
 		item.abstractNote = data.description;
 	}
@@ -61,14 +61,13 @@ function doWeb(doc, url) {
 	// 	mimeType: "audio/mpeg",
 	// 	snapshot: false
 	// }];
-	const commentsText = doc.querySelectorAll('div.comment > div > div.text-wrap > div.text');  // 评论内容，不包括回复
+	const commentsText = doc.querySelectorAll('div.comment > div > div.text-wrap > div.text'); // 评论内容，不包括回复
 	const commentsAuthor = doc.querySelectorAll('div.comment > div > div.info > div > div.name'); // 评论作者
 	var comments = "<h1>热门评论</h1><ul>";
 	if (commentsText.length >= 1) {
 		for (var i = 0; i < 3; i++) {
 			const commentContent = commentsAuthor[i].textContent + ": " + commentsText[i].textContent;
 			comments = comments + "<li>" + commentContent + "</li>";
-
 		}
 	}
 	item.notes.push({ note: comments + "</ul>" });

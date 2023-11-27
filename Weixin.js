@@ -39,7 +39,7 @@ function scrape(doc, url) {
 	
 	item.title = ogMetadataCache.get("og:title");
 	item.websiteType = ogMetadataCache.get("og:site_name");
-	item.blogTitle = doc.querySelector("#profileBt > a").innerText 
+	item.blogTitle = doc.querySelector("#profileBt > a").innerText;
 	item.url = ogMetadataCache.get("og:url");
 	item.abstractNote = ogMetadataCache.get("og:description");
 	item.creators = getArticleCreator(doc, ogMetadataCache.get("og:article:author"));
@@ -49,7 +49,7 @@ function scrape(doc, url) {
 	// note_content = note_content.replace(/<img .*?src='(.*?)'.*?>/g, "<img src='$1'\/>");
 	// note_content = `<h1>${item.title}</h1>` + note_content;
 	// item.notes.push({note:note_content});
-	item.attachments.push({url: url, title: "Snapshot", document: doc});
+	item.attachments.push({ url: url, title: "Snapshot", document: doc });
 	item.complete();
 }
 
@@ -70,12 +70,12 @@ function doWeb(doc, url) {
 function getArticleCreator(doc, authorName) {
 	const profileName = doc.querySelector("#js_name").innerText.trim();
 	if (!authorName.length || authorName === profileName) {
-		return [{lastName: profileName, creatorType: "author", fieldMode: 1}];
+		return [{ lastName: profileName, creatorType: "author", fieldMode: 1 }];
 	}
-	return [{lastName: authorName, creatorType: "author", fieldMode: 1}, 
-			{lastName: profileName, creatorType: "author", fieldMode: 1}
-		   ];
+	return [{ lastName: authorName, creatorType: "author", fieldMode: 1 },
+		{ lastName: profileName, creatorType: "author", fieldMode: 1 }];
 }
+
 /** BEGIN TEST CASES **/
 var testCases = [
 ]

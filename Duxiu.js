@@ -52,20 +52,18 @@ async function doWeb(doc, url) {
 	}
 	else if (/^https?:\/\/jour\.duxiu\.com\/JourDetail/.test(url)) {
 		scrapeAndParse(doc, url, null, "journalArticle");
-		return;
 	}
 	else if (pagetype == "newspaperArticle" || pagetype == "thesis"
-		  || pagetype == "conferencePaper"  || pagetype == "patent"
+		  || pagetype == "conferencePaper" || pagetype == "patent"
 		  || pagetype == "report") {
 		scrapeAndParse(doc, url, null, pagetype);
-		return;
 	}
 	else if (pagetype == "bookSection" || pagetype == "journalArticle") {
 		await scrapeBookSection(doc, url);
 	}
 	else {
 		scrapeAndParse(doc, url);
-	};
+	}
 }
 function scrapeAndParseMultiple(doc, url) {
 	//Z.debug(url);
@@ -76,15 +74,17 @@ async function scrapeBookSection(doc, url) {
 	var scriptStrs = doc.querySelectorAll('script');
 	var metaStr;
 	var bookUrl;
-	const DXbookRegex = /escape\('(https?:\/\/book\.duxiu\.com\/bookDetail.jsp\?.+)'\)+/  // 不适合参考联盟阅读界面
-	const bookRegex = /dxid=(\d+)&SSID=(\d+)&PageNo="\+page\+"&A=(.+?)&/ // 适合读秀和参考联盟等。缺少d而无法使用
-	const elseRegex = /var pageType = \d+;/ // 期刊等
+	const DXbookRegex = /escape\('(https?:\/\/book\.duxiu\.com\/bookDetail.jsp\?.+)'\)+/; // 不适合参考联盟阅读界面
+	const bookRegex = /dxid=(\d+)&SSID=(\d+)&PageNo="\+page\+"&A=(.+?)&/; // 适合读秀和参考联盟等。缺少d而无法使用
+	const elseRegex = /var pageType = \d+;/; // 期刊等
 	for (let i = scriptStrs.length - 1; i > 0; i--) {
 		metaStr = scriptStrs[i].text;
 		if (metaStr.length == 0) continue;
 
 		bookUrl = getI(metaStr.match(DXbookRegex));
-		if(bookUrl) {break;}
+		if (bookUrl) {
+			break;
+		}
 		if (!bookUrl && bookRegex.test(metaStr)) {
 			//let key = bookRegex.exec(metaStr);
 			//bookUrl = `http://book.ucdrs.superlib.net/views/specific/2929/bookDetail.jsp?dxNumber=${key[1]}&d=...`;
@@ -102,7 +102,8 @@ async function scrapeBookSection(doc, url) {
 	if (!bookUrl) {
 		if (doc.querySelector('#OriginInfo') && !ZU.xpathText(doc, '//div[@id="bookinfo"]/@content')) {
 			getBookMetaFromPageOriginInfo(doc, url, pdfUrl, metaStr);
-		} else {
+		}
+		else {
 			getBookMetaFromPage(doc, url, pdfUrl, metaStr);
 		}
 		return;
@@ -110,6 +111,7 @@ async function scrapeBookSection(doc, url) {
 
 	//Z.debug(bookUrl);
 	var bookDoc = await requestDocument(bookUrl);
+
 	/*if (bookDoc.URL.includes("/login.jsp?")) // 未登录，包括环境不支持（Scaffold，cookie异常）
 	{
 		// 传入测试样本供开发测试。
@@ -119,7 +121,7 @@ async function scrapeBookSection(doc, url) {
 	}*/
 
 	//Z.debug(bookDoc);
-	scrapeAndParse(bookDoc, bookUrl, function(newItem) {
+	scrapeAndParse(bookDoc, bookUrl, function (newItem) {
 		//Z.debug(newItem);
 		//Z.debug(doc.title);
 		newItem.bookTitle = newItem.title;
@@ -135,7 +137,7 @@ async function scrapeBookSection(doc, url) {
 		//Z.debug(newItem.pages);
 
 		let pagesStr = getI(pdfUrl.match(/&PageRanges=(.+?)&/));
-		newItem.attachments = getAttachments(pdfUrl, pagesStr)
+		newItem.attachments = getAttachments(pdfUrl, pagesStr);
 
 		newItem.complete();
 	}, "bookSection", doc);
@@ -144,7 +146,8 @@ async function scrapeBookSection(doc, url) {
 function getI(array, index = 1, def = "") { // getItemFromArray
 	if (Array.isArray(array)) {
 		return index < array.length ? array[index] : def;
-	} else {
+	}
+	else {
 		return def;
 	}
 }
@@ -183,7 +186,7 @@ function getBookMetaFromPageOriginInfo(doc, url, pdfUrl, metaStr) {
 	//Z.debug(newItem.pages);
 
 	let pagesStr = getI(pdfUrl.match(/&PageRanges=(.+?)&/));
-	newItem.attachments = getAttachments(pdfUrl, pagesStr)
+	newItem.attachments = getAttachments(pdfUrl, pagesStr);
 
 	//newItem.libraryCatalog = "SuperLib";
 
@@ -211,7 +214,7 @@ function getBookMetaFromPage(doc, url, pdfUrl, metaStr) {
 	//Z.debug(newItem.pages);
 
 	let pagesStr = getI(pdfUrl.match(/&PageRanges=(.+?)&/));
-	newItem.attachments = getAttachments(pdfUrl, pagesStr)
+	newItem.attachments = getAttachments(pdfUrl, pagesStr);
 
 	//newItem.libraryCatalog = "SuperLib";
 
@@ -317,6 +320,7 @@ function detectWeb(doc, url) {
 	else if (/^https?:\/\/.+\.cn\/n\/.+\/qikan\/base/.test(url)) { // 读秀
 		return "journalArticle";
 	}
+
 	/*else if (text(doc,'#textocr')==='文字摘录') { // 读秀系。各类书刊。
 		return "bookSection";
 	}*/
@@ -335,10 +339,10 @@ function decodeHtmlEntity(html, odoc) {
 }
 
 function scrapeAndParse(doc, url, callback, type = "", rootDoc = doc) {
-	let pageEl = ZU.xpath(doc,'//dl');
+	let pageEl = ZU.xpath(doc, '//dl');
 	let page;
 	// 必须提供根文档，否则无法正常implementation.createHTMLDocument，可能出现 [Exception... "Unexpected error"  nsresult: "0x8000ffff (NS_ERROR_UNEXPECTED)"
-	page=decodeHtmlEntity(pageEl[0].innerHTML, rootDoc);
+	page = decodeHtmlEntity(pageEl[0].innerHTML, rootDoc);
 	var pattern;
 	//Z.debug(typeof(page));
 	// 类型 item Type & URL
@@ -361,7 +365,7 @@ function scrapeAndParse(doc, url, callback, type = "", rootDoc = doc) {
 	}
 	if (type == "journalArticle") {
 		let journalName = trimTags(getI(page.match(/<span>刊\s+名\s+:\s+<\/span>([\s\S]*?)<\/dd>/)));
-		newItem.publicationTitle = ZU.trim(journalName)
+		newItem.publicationTitle = ZU.trim(journalName);
 	}
 
 	// 外文题名 foreign title.
@@ -470,7 +474,7 @@ function scrapeAndParse(doc, url, callback, type = "", rootDoc = doc) {
 	}
 	
 	// 出版地点 publication place.
-	let place  = getI(page.match(/<dd>[\s\S]*出版发行[\s\S]*?<\/span>([\s\S]*?)：[\s\S]*?<\/dd>/));
+	let place = getI(page.match(/<dd>[\s\S]*出版发行[\s\S]*?<\/span>([\s\S]*?)：[\s\S]*?<\/dd>/));
 	if (place) {
 		if (place.includes(",")) {
 			// if publication place not provided, replace publisher with trimed info. from place field.
@@ -584,7 +588,7 @@ function scrapeAndParse(doc, url, callback, type = "", rootDoc = doc) {
 	// dxid
 	var dxid = attr(doc, "#dxid", "value");
 	//Z.debug(dxid)
-	if (dxid){
+	if (dxid) {
 		newItem.DXID = dxid;
 	}
 
@@ -599,7 +603,7 @@ function scrapeAndParse(doc, url, callback, type = "", rootDoc = doc) {
 		newItem.tags = keywords.split("；");
 
 		let issue = trimTags(getI(page.match(/<dd>\s*<span>期\s*号\s:\s<\/span>([\s\S]*?)<\/dd>/)));
-		issue = issue.replace(/[第期]/g, "")
+		issue = issue.replace(/[第期]/g, "");
 		newItem.issue = issue;
 
 		let abstractNote = trimTags(getI(page.match(/<dd>[\s\S]*摘\s要[\s\S]*?>([\s\S]*?)<\/dd>/)));
@@ -634,6 +638,7 @@ function scrapeAndParse(doc, url, callback, type = "", rootDoc = doc) {
 		newItem.university = university;
 
 		let advisors = trimTags(getI(page.match(/<dd><span>导师姓名\s*:\s*<\/span>([\s\S]*?)<\/dd>/)));
+
 		/*let advisorsNames = advisors.split(";");
 		for (let an of advisorsNames) {
 			newItem.creators.push({ lastName: an,
@@ -642,7 +647,7 @@ function scrapeAndParse(doc, url, callback, type = "", rootDoc = doc) {
 		}*/ // 没有合适的creatorType
 		newItem.extra += "导师: " + advisors + "\n";
 
-		let abstractNote = ZU.xpathText(doc, '//dd/div[@id="zymore"]')
+		let abstractNote = ZU.xpathText(doc, '//dd/div[@id="zymore"]');
 		abstractNote = ZU.trim(abstractNote).replace(/^摘\s*要\s*:\s*/, "").replace(/\s*隐藏更多$/, "");
 		newItem.abstractNote = abstractNote;
 	}
@@ -654,7 +659,7 @@ function scrapeAndParse(doc, url, callback, type = "", rootDoc = doc) {
 		let date = trimTags(getI(page.match(/<dd>\s*<span>\s*日\s*期\s*:\s*<\/span>([\s\S]*?)<\/dd>/)));
 		newItem.date = date.replace(/\./g, '-');
 
-		let abstractNote = ZU.xpathText(doc, '//dd/div[@id="zymore"]')
+		let abstractNote = ZU.xpathText(doc, '//dd/div[@id="zymore"]');
 		abstractNote = abstractNote || getI(page.match(/<dd>\s*<span>\s*摘\s*要\s*:\s*([\s\S]*?)<\/dd>/)) || "";
 		abstractNote = ZU.trim(abstractNote).replace(/^摘\s*要\s*:\s*/, "").replace(/\s*隐藏更多$/, "");
 		newItem.abstractNote = abstractNote;
@@ -671,8 +676,8 @@ function scrapeAndParse(doc, url, callback, type = "", rootDoc = doc) {
 		authorNames = authorNames.split("，");
 		for (let an of authorNames) {
 			newItem.creators.push({ lastName: an,
-			creatorType: "author",
-			fieldMode: 1 });
+				creatorType: "author",
+				fieldMode: 1 });
 		}
 
 		newItem.applicationNumber = getI(page.match(/<dd><span>申请号\s*:\s*<\/span>([\s\S]*?)<\/dd>/));
@@ -684,8 +689,8 @@ function scrapeAndParse(doc, url, callback, type = "", rootDoc = doc) {
 		newItem.extra += "专利类型: " + patentType + "\n";
 		newItem.extra += "专利IPC号: " + patentIPC + "\n";
 
-		let abstractNote = ZU.xpathText(doc, '//dd[@id="content2"]')
-		if(!abstractNote) abstractNote = getI(page.match(/<dd><span>摘\s要\s*:\s*<\/span>([\s\S]*?)<\/dd>/));
+		let abstractNote = ZU.xpathText(doc, '//dd[@id="content2"]');
+		if (!abstractNote) abstractNote = getI(page.match(/<dd><span>摘\s要\s*:\s*<\/span>([\s\S]*?)<\/dd>/));
 		abstractNote = ZU.trim(abstractNote).replace(/^摘\s*要\s*:\s*/, "").replace(/\s*收起$/, "");
 		newItem.abstractNote = abstractNote;
 	}
@@ -719,12 +724,16 @@ function scrapeAndParse(doc, url, callback, type = "", rootDoc = doc) {
 		newItem.abstractNote = ZU.trim(abstractNote);
 	}
 
-	if (typeof callback == "function") {callback(newItem);}
-	else {newItem.complete();}
+	if (typeof callback == "function") {
+		callback(newItem);
+	}
+	else {
+		newItem.complete();
+	}
 }
 
 // the list from which to pick the best role for a given creator. Do not add variants of strings that end with 著,译，编
-var rolelist = ["总主编", "总编辑", "总编", "编著", "编译", "编", "整理", "执笔", "译", "著", "撰", "纂", "集解", "辑", "编辑", "集注","绘"];
+var rolelist = ["总主编", "总编辑", "总编", "编著", "编译", "编", "整理", "执笔", "译", "著", "撰", "纂", "集解", "辑", "编辑", "集注", "绘"];
 
 function trimTags(text) {
 	return text ? text.replace(/(<.*?>)|\t|\r|(隐藏更多)|&nbsp;|/g, "") : "";
@@ -753,16 +762,7 @@ function pickClosestRole(namelist, index) {
 }
 
 
-
-
-
 // The "dsrqw" book's meta info depend on https://bl.ocks.org/yfdyh000/raw/3d01e626fbc750c8e4719efa220d5752/?raw=true') in Scaffold IDE, due to Cookies bug.
-
-
-
-
-
-
 
 
 /** BEGIN TEST CASES **/

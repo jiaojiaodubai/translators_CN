@@ -58,7 +58,7 @@ var fieldMap = {
 	language: "language",
 	section: "edition",
 	isbn: "callNumber"
-}
+};
 
 function getIDFromURL(url) {
 	if (!url) return false;
@@ -76,7 +76,8 @@ function getIDFromURL(url) {
 			typename: decodeURI(typename[1]),
 			barcodenum: (barcodenum && barcodenum[1] ? barcodenum[1] : '')
 		};
-	} else {
+	}
+	else {
 		return {
 			type: atob(type[1]),
 			id: atob(id[1]),
@@ -90,15 +91,18 @@ function addCreators(names) {
 	return names.replace(/\[\d+\]/g, "").split(";").reduce((a, b) => {
 		if (b.includes(",")) {
 			a.push({ firstName: b.split(",")[0].trim(), lastName: b.split(",")[1].trim(), creatorType: "author" });
-		} else {
+		}
+		else {
 			a.push({ lastName: b, creatorType: "author", fieldMode: 1 });
 		}
 		return a;
-	}, [])
+	}, []);
 }
 
 function addTags(tags) {
-	return tags.split(";").reduce((a, b) => { a.push({ tag: b }); return a }, []);
+	return tags.split(";").reduce((a, b) => {
+		a.push({ tag: b }); return a;
+	}, []);
 }
 
 function addPages(data) {
@@ -113,7 +117,8 @@ function detectWeb(doc, url) {
 	// Z.debug(id);
 	if (id.type) {
 		return itemTypeMatch[id.type];
-	} else if (getSearchResults(doc, true)) {
+	}
+	else if (getSearchResults(doc, true)) {
 		return "multiple";
 	}
 	return false;
@@ -159,7 +164,8 @@ async function scrape(url, id) {
 	if (id.type == 'Ancient') {
 		postData.barcodenum = id.barcodenum;
 		postUrl = 'getancientbooktable';
-	} else {
+	}
+	else {
 		postData.lngid = id.id;
 	}
 	postData = JSON.stringify(postData);
@@ -181,8 +187,8 @@ async function scrape(url, id) {
 	item.url = url;
 	if (item.itemType == 'book') {
 		item.extra = "Type: classic";
-		item.extra = item.extra + (data.pubdatenote ? '\nOriginal Date:' + data.pubdatenote : '');
-		item.extra = item.extra + (data.classname ? '\n分类:' + data.classname : '');
+		item.extra += (data.pubdatenote ? '\nOriginal Date:' + data.pubdatenote : '');
+		item.extra += (data.classname ? '\n分类:' + data.classname : '');
 		let juan = data.titlec.match(/([一二三四五六七八九十]+卷)$/g);
 		data.vol = (juan ? juan[0] : "") + data.num;
 		data.num = null;
@@ -202,7 +208,7 @@ async function scrape(url, id) {
 		mimeType: "application/pdf",
 		title: "Full Text PDF",
 		referer: "https://www.ncpssd.org/"
-	})
+	});
 	item.complete();
 }
 
@@ -210,7 +216,8 @@ async function getPDFUrl(id) {
 	let pdfurl;
 	if (id.type == 'Ancient') {
 		pdfurl = 'https://ft.ncpssd.org/pdf/getn/' + `ancient/pdf/${id.barcodenum}.pdf`;
-	} else {
+	}
+	else {
 		let geturl = `https://www.ncpssd.org/Literature/readurl?id=${id.type == 'eJournalArticle' ? id.id.match(/(\d+)$/g)[0] : id.id}&type=${id.type == 'eJournalArticle' ? 2 : 1}`;
 		// Z.debug(geturl);
 		let resp = await requestJSON(geturl, { method: "GET", "Content-Type": "application/json" });

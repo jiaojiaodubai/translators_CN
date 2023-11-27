@@ -242,7 +242,7 @@ async function scrape(doc, url = doc.location.href) {
 		case 'patent':
 			newItem.place = data.get('add');
 			newItem.creators = data.get('hasAutnam_s', false).map(creator => (matchCreator(creator)));
-			break
+			break;
 		case 'bookSection':
 			break;
 		default:

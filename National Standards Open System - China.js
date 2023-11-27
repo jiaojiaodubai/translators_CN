@@ -86,7 +86,8 @@ function doWeb(doc, url) {
 			case '实施日期':
 				if (!item.date || item.date.length === 0) {
 					item.date = value;
-				} else {
+				}
+				else {
 					addExtra(item, [field, value]);
 				}
 				break;

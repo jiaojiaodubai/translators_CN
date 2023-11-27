@@ -39,17 +39,23 @@
 function detectWeb(doc, url) {
 	if (url.includes('/JourDetail')) {
 		return "journalArticle";
-	} else if (url.includes('/bookDetail')) {
+	}
+	else if (url.includes('/bookDetail')) {
 		return "book";
-	} else if (url.includes('/NPDetail')) {
+	}
+	else if (url.includes('/NPDetail')) {
 		return "newspaperArticle";
-	} else if (url.includes('/thesisDetail')) {
+	}
+	else if (url.includes('/thesisDetail')) {
 		return "thesis";
-	} else if (url.includes('/CPDetail')) {
+	}
+	else if (url.includes('/CPDetail')) {
 		return "conferencePaper";
-	} else if (url.includes('/patentDetail')) {
+	}
+	else if (url.includes('/patentDetail')) {
 		return "patent";
-	} else if (getSearchResults(doc, true)) {
+	}
+	else if (getSearchResults(doc, true)) {
 		return "multiple";
 	}
 	return false;
@@ -108,7 +114,7 @@ function scrape(doc, url) {
 		发明人: 'inventor',
 		地址: 'place',
 		申请人: 'attorneyAgent',
-		"ISBN号": 'ISBN'
+		ISBN号: 'ISBN'
 	};
 	var item = new Zotero.Item(itemType);
 	item.title = doc.title.replace(/_.*?搜索$/, "");
@@ -122,16 +128,17 @@ function scrape(doc, url) {
 		if (lineContent.length === 2) {
 			var field = lineContent[0].slice(1,).replace(/\s/g, '');
 			var value = lineContent[1].trim();
-			if (field in hashField && ('attorneyAgent', 'inventor', 'contributor', 'author').indexOf(hashField[field]) >= 0) {
+			if (field in hashField && 'attorneyAgent', 'inventor', 'contributor', 'author'.contains(hashField[field])) {
 				Z.debug(hashField[field]);
-				if (value.length === 2){
+				if (value.length === 2) {
 					value = value.replace(';', '');
 				}
 				var names = value.split(/[;，；]/);
-				for (let i = 0; i < names.length; i++){
+				for (let i = 0; i < names.length; i++) {
 					item.creators.push(formatName(names[i], hashField[field], itemType));
 				}
-			} else if (field in hashField) {
+			}
+			else if (field in hashField) {
 				if (field == "出版项" && value.match(/[\d\.]+$/)) {
 					item.date = value.match(/[\d\.]+$/)[0];
 					value = value.replace(" , " + item.date, "");
@@ -141,7 +148,7 @@ function scrape(doc, url) {
 				}
 				if (field == "关键词") {
 					value = value.split(/；|;/);
-					value.forEach(tag => item.tags.push({"tag":tag}));
+					value.forEach(tag => item.tags.push({ tag: tag }));
 				}
 				item[hashField[field]] = value;
 			}
@@ -163,16 +170,18 @@ function formatName(name, creatorType, itemType) {
 		if (name.match(/副?主编$|参编$/)) {
 			name = name.replace(/副?主编$|参编$/, "");
 			creatorType = "editor";
-		} else if (name.match(/著$/)) {
+		}
+		else if (name.match(/著$/)) {
 			name = name.replace(/著$/, "");
 		}
 	}
 	var lastSpace = name.lastIndexOf(' ');
-	if (name.search(/[A-Za-z]/) !== -1 && lastSpace !== -1) {
+	if (/[A-Za-z]/.test(name) && lastSpace !== -1) {
 		// western name. split on last space
 		firstName = name.substr(0, lastSpace);
 		lastName = name.substr(lastSpace + 1);
-	} else if (name.lastIndexOf("·") > 0) {
+	}
+	else if (name.lastIndexOf("·") > 0) {
 		firstName = name;
 		lastName = "";
 	}
@@ -181,10 +190,11 @@ function formatName(name, creatorType, itemType) {
 		firstName = name.substr(1);
 		lastName = name.charAt(0);
 	}
-	return {firstName: firstName,
-			lastName: lastName,
-			creatorType: creatorType};
+	return { firstName: firstName,
+		lastName: lastName,
+		creatorType: creatorType };
 }
+
 /** BEGIN TEST CASES **/
 var testCases = [
 	{

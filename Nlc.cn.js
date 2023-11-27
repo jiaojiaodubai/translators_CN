@@ -49,7 +49,6 @@ function doWeb(doc, url) {
 }
 
 
-
 function scrape(doc, url) {
 	if (!url || url.length <= 0) {
 		return;
@@ -89,7 +88,7 @@ function scrapeSpc(doc, url, callback) {
 			continue;
 		}
 
-		var tdContent= p.nextElementSibling.textContent.trim();
+		var tdContent = p.nextElementSibling.textContent.trim();
 
 		switch (tdTitle) {
 			case '标准号':
@@ -131,7 +130,7 @@ function scrapeSpc(doc, url, callback) {
 				item.pages = tdContent.replace(' 页', '');
 				break;
 			case '起草人':
-				for(var c of tdContent.split('、')) {
+				for (var c of tdContent.split('、')) {
 					item.creators.push({
 						lastName: c,
 						creatorType: 'author',

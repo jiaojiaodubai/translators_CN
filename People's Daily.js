@@ -12,6 +12,30 @@
 	"lastUpdated": "2023-04-07 07:40:18"
 }
 
+
+/*
+	***** BEGIN LICENSE BLOCK *****
+
+	Copyright © 2023 pixiandouban
+
+	This file is part of Zotero.
+
+	Zotero is free software: you can redistribute it and/or modify
+	it under the terms of the GNU Affero General Public License as published by
+	the Free Software Foundation, either version 3 of the License, or
+	(at your option) any later version.
+
+	Zotero is distributed in the hope that it will be useful,
+	but WITHOUT ANY WARRANTY; without even the implied warranty of
+	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+	GNU Affero General Public License for more details.
+
+	You should have received a copy of the GNU Affero General Public License
+	along with Zotero. If not, see <http://www.gnu.org/licenses/>.
+
+	***** END LICENSE BLOCK *****
+*/
+
 function detectWeb(doc, url) {
 	var lists = doc.querySelector(".title_list, .daodu_warp");
 	if (url.includes('qs') || lists) { //搜索界面
@@ -47,7 +71,7 @@ function doWeb(doc, url) {
 			ZU.processDocuments(articles, scrape);
 		});
 	}
-	else if (detectWeb(doc, url) == "newspaperArticle") {//newspaperArticle 
+	else if (detectWeb(doc, url) == "newspaperArticle") { //newspaperArticle
 		scrape(doc, url);
 	}
 	else {
@@ -66,7 +90,7 @@ function scrape(doc, url) {
 		authors = authors.replace("【作者：", "").replace("】", "").split(/[，、\s;]+/);
 		//Z.debug(authors);
 		if (authors.length > 1) {
-			for (i = 0; i < authors.length; i = i + 1) {
+			for (i = 0; i < authors.length; i += 1) {
 				item.creators.push(ZU.cleanAuthor((authors[i]), "author"));
 			}
 		}
@@ -94,7 +118,6 @@ function scrape(doc, url) {
 	});
 
 	item.complete();
-
 }/** BEGIN TEST CASES **/
 var testCases = [
 	{
