@@ -1,7 +1,7 @@
 {
 	"translatorID": "992850d2-b68b-4a1f-8dd6-0f4fd323c6be",
 	"label": "Cubox",
-	"creator": "\"*******************\"",
+	"creator": "eatcosmos",
 	"target": "https://cubox.pro/my/card",
 	"minVersion": "5.0",
 	"maxVersion": "",
@@ -16,7 +16,7 @@
 /*
 	***** BEGIN LICENSE BLOCK *****
 
-	Copyright © 2023 "*******************"
+	Copyright © 2023 eatcosmos
 
 	This file is part of Zotero.
 
@@ -37,7 +37,6 @@
 */
 
 function detectWeb(doc, url) {
-	// TODO: adjust the logic here
 	if (url.includes('card')) {
 		return 'blogPost';
 	}
@@ -47,19 +46,15 @@ function detectWeb(doc, url) {
 	else if (url.includes('ChatGPT')) {
 		return 'blogPost';
 	}
-	return 'blogPost';
 	return false;
 }
 
 function getSearchResults(doc, checkOnly) {
 	var items = {};
 	var found = false;
-	// TODO: adjust the CSS selector
 	var rows = doc.querySelectorAll('h2 > a.title[href*="/article/"]');
 	for (let row of rows) {
-		// TODO: check and maybe adjust
 		let href = row.href;
-		// TODO: check and maybe adjust
 		let title = ZU.trimInternal(row.textContent);
 		if (!href || !title) continue;
 		if (checkOnly) return true;
@@ -70,7 +65,6 @@ function getSearchResults(doc, checkOnly) {
 }
 
 async function doWeb(doc, url) {
-	Z.debug("***************************************************");
 	if (detectWeb(doc, url) == 'multiple') {
 		let items = await Zotero.selectItems(getSearchResults(doc, false));
 		if (!items) return;
@@ -79,18 +73,16 @@ async function doWeb(doc, url) {
 		}
 	}
 	else {
-		Z.debug("***************************************************");
 		await scrape(doc, url);
 	}
 }
 
 async function scrape(doc, url = doc.location.href) {
 	// TODO: implement or add a scrape function template
-	Z.debug("***************************************************");
 	Z.debug("url: " + url);
 	var title = ZU.xpath(doc, "//h1[@class='reader-title']"); // 返回的所有符合该条件的元素列表
 	// Z.debug("title 1: " + title);
-	var title = title[0].innerText; // 因为从网页上看只有一个元素符合这个条件，就把第一个元素取出，它的文本就是标题内容
+	title = title[0].innerText; // 因为从网页上看只有一个元素符合这个条件，就把第一个元素取出，它的文本就是标题内容
 	Z.debug("title 2: " + title);
 	// var publishDate = ZU.xpath(doc, "//head/meta[@name='publishdate']");  // 也是返回列表
 	// var publishDate = publishDate[0].getAttribute('content');  // 取第一个元素，取得 content 属性值
@@ -98,9 +90,9 @@ async function scrape(doc, url = doc.location.href) {
 	var author = ZU.xpath(doc, "//span[@class='reader-metadata-author']");
 	author = author[0].innerText;
 	Z.debug("author: " + author);
-	var origin_url = ZU.xpath(doc, "//a[@class='reader-footer-source']");
-	origin_url = origin_url[0].getAttribute('href');
-	Z.debug("origin_url: " + origin_url);
+	var originUrl = ZU.xpath(doc, "//a[@class='reader-footer-source']");
+	originUrl = originUrl[0].getAttribute('href');
+	Z.debug("origin_url: " + originUrl);
 
 	var newItem = new Zotero.Item("blogPost"); // 新建一个新闻条目，后面把信息填入到对应字段
 	newItem.title = title;
@@ -111,14 +103,10 @@ async function scrape(doc, url = doc.location.href) {
 	newItem.creators.push({ lastName: author, creatorType: 'author' }); // 创建者信息，参考文本翻译器编写官方文档
 	// newItem.notes.push({note:content});  // 这里是把内容放到条目下的笔记中
 	// newItem.attachments.push({url:origin_url, title:title});  // 这里是把网页快照放到条目下的附件中
-	newItem.extra = origin_url; // 这里是把原始网址放到条目下的附加信息中
+	newItem.extra = originUrl; // 这里是把原始网址放到条目下的附加信息中
 	newItem.complete(); // 最后一定要有这一步，表示收集完成，可以传给 Zotero
 }
 
-/** BEGIN TEST CASES **/
-var testCases = [
-]
-/** END TEST CASES **/
 /** BEGIN TEST CASES **/
 var testCases = [
 	{

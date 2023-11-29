@@ -50,9 +50,9 @@
 
 ## 其他
 
-- [ ] Cubox
-  - [ ] `header`缺少必要信息
-  - [ ] 缺`data.json`记录
+- [x] Cubox
+  - [x] `header`缺少必要信息
+  - [x] 缺`data.json`记录
 
 ## 开发建议
 
