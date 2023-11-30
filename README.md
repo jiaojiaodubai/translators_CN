@@ -21,15 +21,15 @@
 
 ## `ZU.do*()`遗留
 
-- [ ] Baidu Scholar
+- [x] Baidu Scholar
 - [ ] GFSOSO
 - [ ] Soopat
 - [ ] Wenjin
 
 ## 未使用`async`和`awaite`执行异步操作
 
-- [ ] Baidu Scholar
-- [ ] Bilibili
+- [x] Baidu Scholar
+- [x] Bilibili
 - [ ] Dangdang
 - [ ] Douban
 - [ ] dpaper
