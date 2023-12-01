@@ -12,7 +12,7 @@
 - [ ] People's Daily
 - [ ] ProQuestCN Thesis
 - [ ] Soopat
-- [ ] SuperLib
+- [x] SuperLib
 - [ ] Wanfang Data
 - [ ] Weixin
 - [ ] Wenjin
@@ -42,7 +42,7 @@
 - [ ] PKULaw
 - [ ] ProQuestCN Thesis
 - [ ] Spc.org.cn
-- [ ] SuperLib
+- [x] SuperLib
 - [ ] Wanfang Data
 - [ ] Weixin
 - [ ] Wenjin
