@@ -129,29 +129,63 @@ function getTypeFromDBName(ids) {
 		// CJFQ,CDFD,CMFD,CPFD,IPFD,CPVD,CCND,WBFD,SCSF,SCHF,SCSD,SNAD,CCJD,CJFN,CCVD
 		// en
 		// WWJD,IPFD,WWPD,WWBD,SOSD
-		CAPJ: 'journalArticle',
+		// 学术辑刊 zh
 		CCJD: 'journalArticle',
+		// 学术期刊 journal zh
+		CJFQ: 'journalArticle',
+		// 学术期刊 journal en
+		WWJD: 'journalArticle',
+		// 特色期刊 journal
+		CJFN: 'journalArticle',
+
+		/* 余下journal未在页面找到，可能已经过时 */
 		CDMD: 'journalArticle',
 		CJFD: 'journalArticle',
-		CJFQ: 'journalArticle',
+		CAPJ: 'journalArticle',
 		CJZK: 'journalArticle',
-		CYFD: 'journalArticle',
 		SJES: 'journalArticle',
 		SJPD: 'journalArticle',
 		SSJD: 'journalArticle',
-		WWJD: 'journalArticle',
+		// 博士 dissertation zh
 		CDFD: 'thesis',
+		// 硕士 dissertation zh
 		CMFD: 'thesis',
-		// CDMH: 'thesis',
-		// CLKM: 'thesis',
+		// 下面两个未在页面上见到
+		CDMH: 'thesis',
+		CLKM: 'thesis',
 		CHKN: 'newspaperArticle',
 		CHKJ: 'newspaperArticle',
+		// 报纸 newspaper zh
 		CCND: 'newspaperArticle',
-		CIPD: 'conferencePaper',
-		CPFD: 'conferencePaper',
-		IPFD: 'conferencePaper',
+		// 中国专利 patent zh
+		SCPD: 'patent',
+		// 境外专利 patent en
+		SOPD: 'patent',
 		SCOD: 'patent',
-		SCPD: 'patent'
+		// 年鉴 almanac zh，原先记录可能有误
+		// CYFD: 'journalArticle',
+		// 国内会议 conference zh
+		CPFD: 'conferencePaper',
+		// （国外）会议 en
+		WWPD: 'conferencePaper',
+		// 会议视频 video zh
+		CPVD: 'conferencePaper',
+		// 国际会议 conference en zh
+		CIPD: 'conferencePaper',
+		IPFD: 'conferencePaper'
+		// 视频 video zh
+		// CCVD
+		// 国家标准 standard zh
+		// SCSF: 'standard',
+		// 行业标准 standard zh
+		// SCHF: 'standard',
+		// 标准题录 standard zh
+		// SCSD: 'standard',
+		// 标准题录 standard en
+		// SOSD: 'standard'
+		// 成果 achievements
+		// SNAD
+		
 	};
 	let db = ids.dbname.substr(0, 4).toUpperCase();
 	return dbType[db] || dbType[ids.dbcode];
@@ -345,8 +379,8 @@ async function scrape(doc, url = doc.location.href, cite) {
 			referText = referText.data[2].value[0];
 		}
 		catch (error2) {
-			debugItem.notes.push(error2);
-			debugItem.notes.push(innerText(doc, 'body'));
+			// debugItem.notes.push(error2);
+			// debugItem.notes.push(innerText(doc, 'body'));
 			// Value return from API is invalid, scrape metadata from webpage
 			Z.debug('scraping from page...');
 			if (!isSpace) {
@@ -440,7 +474,7 @@ function fixItem(newItem, doc, ids, cite) {
 			break;
 		case 'thesis':
 			newItem.creators.forEach(element => {
-				creator.creatorType = 'contributor'
+				element.creatorType = 'contributor';
 			});
 			newItem.creators[1].creatorType = 'Author';
 			break;
@@ -475,7 +509,7 @@ function fixItem(newItem, doc, ids, cite) {
 		+ `&v=`;
 	// CNKI DOI
 	if (!newItem.DOI) newItem.DOI = label2Text(doc, 'DOI');
-	newItem.creators.forEach(element => {
+	newItem.creators.forEach((element) => {
 		if (/[\u4e00-\u9fa5]/.test(element.lastName)) {
 			element.fieldMode = 1;
 		}
