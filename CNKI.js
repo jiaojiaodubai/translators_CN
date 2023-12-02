@@ -9,7 +9,7 @@
 	"inRepository": true,
 	"translatorType": 4,
 	"browserSupport": "gcsibv",
-	"lastUpdated": "2023-12-02 14:13:28"
+	"lastUpdated": "2023-12-02 15:27:31"
 }
 
 /*
@@ -345,7 +345,7 @@ async function scrape(doc, url = doc.location.href, cite) {
 	}
 	if (referText) {
 		Z.debug("Get referText from api successfuly!");
-		// Z.debug(referText);
+		Z.debug(referText);
 		referText = referText
 			// breakline
 			.replace(/<br>|\r/g, '\n')
@@ -354,12 +354,15 @@ async function scrape(doc, url = doc.location.href, cite) {
 			.replace(/^%K .*/gm, function (match) {
 				return match.replace(/[,;，；]\s?/g, '\n%K ');
 			})
+			.replace(/^%Y .*/gm, function (match) {
+				return match.replace(/[,;，；]\s?/g, '\n%Y ');
+			})
 			.replace(/^%V 0?/m, '%V ')
 			.replace(/^%N 0?/m, '%N ')
 			// \t in abstract
 			.replace(/\t/g, '')
 			.replace(/(\n\s*)+/g, '\n');
-		// Z.debug(referText);
+		Z.debug(referText);
 		var translator = Zotero.loadTranslator("import");
 		// Refer/BibIX
 		translator.setTranslator('881f60f2-0802-411a-9228-ce5f47b64c7d');
@@ -477,8 +480,6 @@ function getAttachments(doc, keepPDF) {
 			mimeType: 'application/pdf',
 			url: pdfurl
 		});
-	}
-	else {
 	}
 	else {
 		attachments.push({
@@ -608,7 +609,13 @@ var testCases = [
 					},
 					{
 						"firstName": "",
-						"lastName": "黄三文;杨清",
+						"lastName": "黄三文",
+						"creatorType": "contributor",
+						"fieldMode": 1
+					},
+					{
+						"firstName": "",
+						"lastName": "杨清",
 						"creatorType": "contributor",
 						"fieldMode": 1
 					}
@@ -843,7 +850,6 @@ var testCases = [
 						"tag": "金黄色葡萄球菌"
 					}
 				],
-				"tags": [],
 				"notes": [],
 				"seeAlso": []
 			}
@@ -887,8 +893,8 @@ var testCases = [
 		"url": "https://t.cnki.net/kcms/article/abstract?v=xNq_RSSxtttXhP9SP69wMjwcwnSNtz7xbvO0_2Ai5cAwr_ND2iars2pGW3KdmtkLjJ-0-Gtv1odozNwDqpFk0E1STZw5eW-MucmrF2C2xy9jKgvYle59nPCj0k5endRrlj7vYbRfbiw=&uniplatform=NZKPT",
 		"items": [
 			{
-				"itemType": "conferencePaper",
-				"title": "转录组学和毒力基因调控揭示了异硫氰酸苄酯对金黄色葡萄球菌的抗菌机制",
+				"itemType": "journalArticle",
+				"title": "压型钢板-聚氨酯夹芯楼板受弯性能研究",
 				"creators": [
 					{
 						"firstName": "",
@@ -945,16 +951,13 @@ var testCases = [
 						"tag": "受弯性能"
 					},
 					{
-						"title": "Full Text PDF",
-						"mimeType": "application/pdf"
-					}
-				],
-				"tags": [
-					{
-						"tag": "RNA"
+						"tag": "夹芯楼板"
 					},
 					{
-						"tag": "转录组"
+						"tag": "有限元分析"
+					},
+					{
+						"tag": "静载试验"
 					}
 				],
 				"notes": [],
