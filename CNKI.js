@@ -9,7 +9,7 @@
 	"inRepository": true,
 	"translatorType": 4,
 	"browserSupport": "gcsibv",
-	"lastUpdated": "2023-12-02 20:26:04"
+	"lastUpdated": "2023-12-02 20:32:38"
 }
 
 /*
@@ -460,7 +460,7 @@ function fixItem(newItem, doc, ids, cite) {
 			break;
 	}
 	newItem.abstractNote = newItem.abstractNote || text(doc, '.abstract-text');
-	newItem.abstract = newItem.abstractNote
+	newItem.abstractNote = newItem.abstractNote
 		.replace(/\s*[\r\n]\s*/g, '\n')
 		.replace(/&lt;.*?&gt;/g, '')
 		.replace(/^＜正＞/, '');
