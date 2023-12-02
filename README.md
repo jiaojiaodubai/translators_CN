@@ -2,7 +2,7 @@
 
 ## 未通过ESLint
 
-- [ ] CNKI
+- [x] CNKI
 - [ ] Dangdang
 - [ ] Duxiu
 - [ ] GFSOSO
