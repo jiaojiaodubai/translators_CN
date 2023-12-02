@@ -479,6 +479,8 @@ function getAttachments(doc, keepPDF) {
 		});
 	}
 	else {
+	}
+	else {
 		attachments.push({
 			title: 'Full Text CAJ',
 			mimeType: 'application/caj',
@@ -841,6 +843,7 @@ var testCases = [
 						"tag": "金黄色葡萄球菌"
 					}
 				],
+				"tags": [],
 				"notes": [],
 				"seeAlso": []
 			}
@@ -884,8 +887,8 @@ var testCases = [
 		"url": "https://t.cnki.net/kcms/article/abstract?v=xNq_RSSxtttXhP9SP69wMjwcwnSNtz7xbvO0_2Ai5cAwr_ND2iars2pGW3KdmtkLjJ-0-Gtv1odozNwDqpFk0E1STZw5eW-MucmrF2C2xy9jKgvYle59nPCj0k5endRrlj7vYbRfbiw=&uniplatform=NZKPT",
 		"items": [
 			{
-				"itemType": "journalArticle",
-				"title": "压型钢板-聚氨酯夹芯楼板受弯性能研究",
+				"itemType": "conferencePaper",
+				"title": "转录组学和毒力基因调控揭示了异硫氰酸苄酯对金黄色葡萄球菌的抗菌机制",
 				"creators": [
 					{
 						"firstName": "",
@@ -942,13 +945,16 @@ var testCases = [
 						"tag": "受弯性能"
 					},
 					{
-						"tag": "夹芯楼板"
+						"title": "Full Text PDF",
+						"mimeType": "application/pdf"
+					}
+				],
+				"tags": [
+					{
+						"tag": "RNA"
 					},
 					{
-						"tag": "有限元分析"
-					},
-					{
-						"tag": "静载试验"
+						"tag": "转录组"
 					}
 				],
 				"notes": [],
