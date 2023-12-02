@@ -9,7 +9,7 @@
 	"inRepository": true,
 	"translatorType": 4,
 	"browserSupport": "gcsibv",
-	"lastUpdated": "2023-12-02 15:27:31"
+	"lastUpdated": "2023-12-02 18:50:50"
 }
 
 /*
@@ -54,7 +54,7 @@ function detectWeb(doc, url) {
 		// search page
 		/search\.cnki\.com/i
 	];
-	let searchResult = doc.querySelector("#ModuleSearchResult");
+	let searchResult = doc.querySelector('#ModuleSearchResult, #contentPanel, .main_sh');
 	if (searchResult) {
 		Z.monitorDOMChanges(searchResult, { childList: true, subtree: true });
 	}
@@ -63,7 +63,7 @@ function detectWeb(doc, url) {
 		return getTypeFromDBName(ids);
 	}
 	else if (multiplePattern.find(element => element.test(url)) && getSearchResults(doc, url, true)) {
-		return "multiple";
+		return 'multiple';
 	}
 	else {
 		return false;
@@ -225,6 +225,7 @@ async function scrape(doc, url = doc.location.href, cite) {
 	ids = isSpace ? getIDFromSpaceURL(url) : getIDFromPage(doc, url);
 	Z.debug(ids);
 	var postData, refer, referText = '';
+	var debugItem = new Z.Item('note');
 	try {
 		postData = `FileName=${ids.dbname}!${ids.filename}!1!0`
 			+ '&DisplayMode=EndNote'
@@ -250,6 +251,9 @@ async function scrape(doc, url = doc.location.href, cite) {
 				}
 			}
 		);
+		debugItem.title = 'debug'.title
+		debugItem.url = url;
+		debugItem.notes.push(referText);
 
 		/* Due to CNKI's anti crawler feature, fixed text is used during debugging to avoid frequent requests */
 		/*
@@ -282,6 +286,7 @@ async function scrape(doc, url = doc.location.href, cite) {
 			.replace(/<br><\/li><\/ul><input.*>$/, '');
 	}
 	catch (error1) {
+		debugItem.notes.push(error1);
 		try {
 			postData = `filename=${ids.dbname}!${ids.filename}!1!0`
 				+ '&displaymode=GBTREFER%2Celearning%2CEndNote';
@@ -295,7 +300,7 @@ async function scrape(doc, url = doc.location.href, cite) {
 					}
 				}
 			);
-
+			debugItem.notes.push(referText);
 			/* Due to CNKI's anti crawler feature, fixed text is used during debugging to avoid frequent requests */
 			/*
 			referText = {
@@ -336,6 +341,8 @@ async function scrape(doc, url = doc.location.href, cite) {
 			referText = referText.data[2].value[0];
 		}
 		catch (error2) {
+			debugItem.notes.push(error2);
+			debugItem.notes.push(innerText(doc, 'body'));
 			// Value return from API is invalid, scrape metadata from webpage
 			Z.debug('scraping from page...');
 			if (!isSpace) {
@@ -343,6 +350,7 @@ async function scrape(doc, url = doc.location.href, cite) {
 			}
 		}
 	}
+	debugItem.complete();
 	if (referText) {
 		Z.debug("Get referText from api successfuly!");
 		Z.debug(referText);
