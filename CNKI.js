@@ -9,7 +9,7 @@
 	"inRepository": true,
 	"translatorType": 4,
 	"browserSupport": "gcsibv",
-	"lastUpdated": "2023-12-02 18:50:50"
+	"lastUpdated": "2023-12-02 20:26:04"
 }
 
 /*
@@ -125,6 +125,10 @@ function getIDFromSpaceURL(url) {
 
 function getTypeFromDBName(ids) {
 	const dbType = {
+		// zh
+		// CJFQ,CDFD,CMFD,CPFD,IPFD,CPVD,CCND,WBFD,SCSF,SCHF,SCSD,SNAD,CCJD,CJFN,CCVD
+		// en
+		// WWJD,IPFD,WWPD,WWBD,SOSD
 		CAPJ: 'journalArticle',
 		CCJD: 'journalArticle',
 		CDMD: 'journalArticle',
@@ -135,11 +139,11 @@ function getTypeFromDBName(ids) {
 		SJES: 'journalArticle',
 		SJPD: 'journalArticle',
 		SSJD: 'journalArticle',
+		WWJD: 'journalArticle',
 		CDFD: 'thesis',
-		CDMH: 'thesis',
-		// CDMD: 'thesis',
-		CLKM: 'thesis',
 		CMFD: 'thesis',
+		// CDMH: 'thesis',
+		// CLKM: 'thesis',
 		CHKN: 'newspaperArticle',
 		CHKJ: 'newspaperArticle',
 		CCND: 'newspaperArticle',
@@ -225,7 +229,8 @@ async function scrape(doc, url = doc.location.href, cite) {
 	ids = isSpace ? getIDFromSpaceURL(url) : getIDFromPage(doc, url);
 	Z.debug(ids);
 	var postData, refer, referText = '';
-	var debugItem = new Z.Item('note');
+	// var debugItem = new Z.Item('note');
+	// debugItem.title = 'debug';
 	try {
 		postData = `FileName=${ids.dbname}!${ids.filename}!1!0`
 			+ '&DisplayMode=EndNote'
@@ -251,9 +256,8 @@ async function scrape(doc, url = doc.location.href, cite) {
 				}
 			}
 		);
-		debugItem.title = 'debug'.title
-		debugItem.url = url;
-		debugItem.notes.push(referText);
+		// debugItem.url = url;
+		// debugItem.notes.push(referText);
 
 		/* Due to CNKI's anti crawler feature, fixed text is used during debugging to avoid frequent requests */
 		/*
@@ -286,7 +290,7 @@ async function scrape(doc, url = doc.location.href, cite) {
 			.replace(/<br><\/li><\/ul><input.*>$/, '');
 	}
 	catch (error1) {
-		debugItem.notes.push(error1);
+		// debugItem.notes.push(error1);
 		try {
 			postData = `filename=${ids.dbname}!${ids.filename}!1!0`
 				+ '&displaymode=GBTREFER%2Celearning%2CEndNote';
@@ -300,7 +304,7 @@ async function scrape(doc, url = doc.location.href, cite) {
 					}
 				}
 			);
-			debugItem.notes.push(referText);
+			// debugItem.notes.push(referText);
 			/* Due to CNKI's anti crawler feature, fixed text is used during debugging to avoid frequent requests */
 			/*
 			referText = {
@@ -350,7 +354,7 @@ async function scrape(doc, url = doc.location.href, cite) {
 			}
 		}
 	}
-	debugItem.complete();
+	// debugItem.complete();
 	if (referText) {
 		Z.debug("Get referText from api successfuly!");
 		Z.debug(referText);
@@ -361,6 +365,9 @@ async function scrape(doc, url = doc.location.href, cite) {
 			.replace(/^%@ /, '%G')
 			.replace(/^%K .*/gm, function (match) {
 				return match.replace(/[,;，；]\s?/g, '\n%K ');
+			})
+			.replace(/^%A .*/gm, function (match) {
+				return match.replace(/[,;，；]\s?/g, '\n%A ');
 			})
 			.replace(/^%Y .*/gm, function (match) {
 				return match.replace(/[,;，；]\s?/g, '\n%Y ');
@@ -376,6 +383,7 @@ async function scrape(doc, url = doc.location.href, cite) {
 		translator.setTranslator('881f60f2-0802-411a-9228-ce5f47b64c7d');
 		translator.setString(referText);
 		translator.setHandler('itemDone', (_obj, newItem) => {
+			newItem.type = tryMatch(referText, /^%9 (.*)/m);
 			fixItem(newItem, doc, ids, cite);
 			newItem.complete();
 		});
@@ -416,19 +424,46 @@ async function scrapeDoc(doc, ids, cite) {
 	for (let field in fieldMap) {
 		newItem[field] = text(doc, fieldMap[field]);
 	}
-	if (newItem.pages) newItem.pages = tryMatch(newItem.pages, /^页码：([\d,.+-]+)/, 1);
+	if (newItem.pages) {
+		newItem.pages = tryMatch(newItem.pages, /[\D0]*([\d,.+-]+)/, 1);
+	}
 	fixItem(newItem, doc, ids, cite);
 	newItem.complete();
 }
 
 /* 通过变量提升起效 */
 function fixItem(newItem, doc, ids, cite) {
-	newItem.abstractNote = newItem.abstractNote
-		? newItem.abstractNote
-			.replace(/\s*[\r\n]\s*/g, '\n')
-			.replace(/&lt;.*?&gt;/g, '')
-			.replace(/^＜正＞/, '')
-		: '';
+	switch (newItem.itemType) {
+		case 'journalArticle':
+			// CN 中国刊物编号，非refworks中的callNumber
+			delete newItem.callNumber;
+			break;
+		case 'thesis':
+			newItem.creators.forEach(element => {
+				creator.creatorType = 'contributor'
+			});
+			newItem.creators[1].creatorType = 'Author';
+			break;
+		case 'patent':
+			newItem.place = label2Text(doc, '地址');
+			newItem.country = label2Text(doc, '国省代码');
+			newItem.patentNumber = label2Text(doc, '申请(专利)号');
+			newItem.filingDate = label2Text(doc, '申请日');
+			newItem.applicationNumber = label2Text(doc, '申请(专利)号');
+			newItem.issueDate = label2Text(doc, '授权公告日');
+			newItem.rights = text(doc, '.claim > h5 + div');
+			break;
+		case 'conferencePaper':
+			newItem.conferenceName = label2Text(doc, '会议名称');
+			break;
+		default:
+			break;
+	}
+	newItem.abstractNote = newItem.abstractNote || text(doc, '.abstract-text');
+	newItem.abstract = newItem.abstractNote
+		.replace(/\s*[\r\n]\s*/g, '\n')
+		.replace(/&lt;.*?&gt;/g, '')
+		.replace(/^＜正＞/, '');
 	if (cite) newItem.extra = `cite: ${cite}`;
 	// Build a shorter url
 	newItem.url = ids.url.includes("cnki.net")
@@ -440,22 +475,11 @@ function fixItem(newItem, doc, ids, cite) {
 		+ `&v=`;
 	// CNKI DOI
 	if (!newItem.DOI) newItem.DOI = label2Text(doc, 'DOI');
-	// CN 中国刊物编号，非refworks中的callNumber
-	delete newItem.callNumber;
-	for (var i = 0, n = newItem.creators.length; i < n; i++) {
-		// 通过浅拷贝影响原数组
-		var creator = newItem.creators[i];
-
-		/* test CJK char */
-		if (/[\u4e00-\u9fa5]/.test(creator.lastName)) {
-			creator.fieldMode = 1;
+	newItem.creators.forEach(element => {
+		if (/[\u4e00-\u9fa5]/.test(element.lastName)) {
+			element.fieldMode = 1;
 		}
-		if (newItem.itemType == 'thesis' && i != 0) {
-			// Except first author are Advisors in thesis
-			// Here is contributor
-			creator.creatorType = 'contributor';
-		}
-	}
+	});
 	if (doc.querySelector('.icon-shoufa')) {
 		newItem.itemType = 'preprint';
 		newItem.date = tryMatch(innerText(doc, '.head-time'), /：([\d-]*)/, 1);
