@@ -9,7 +9,7 @@
 	"inRepository": true,
 	"translatorType": 4,
 	"browserSupport": "gcsibv",
-	"lastUpdated": "2023-12-03 11:35:54"
+	"lastUpdated": "2023-12-03 19:12:44"
 }
 
 /*
@@ -37,6 +37,8 @@ var ids = {
 	url: ''
 };
 
+// var debugMode = false;
+
 function detectWeb(doc, url) {
 	Z.debug("----------------CNKI 20231202------------------");
 	ids = getIDFromPage(doc, url);
@@ -59,7 +61,8 @@ function detectWeb(doc, url) {
 		Z.monitorDOMChanges(searchResult, { childList: true, subtree: true });
 	}
 	if (ids) {
-		// Z.debug(ids);
+		// Z.debug('detecte id:');
+		// Z.debug(ids)
 		return getTypeFromDBName(ids);
 	}
 	else if (url.includes('book/bookdetail')) {
@@ -84,7 +87,7 @@ function getIDFromPage(doc, url) {
 }
 
 function getIDFromURL(url) {
-	Z.debug(`receive url: ${url}`);
+	// Z.debug(`receive url: ${url}`);
 	ids = {
 		dbname: /[?&](?:db|table)[nN]ame=([^&#]*)/i,
 		filename: /[?&]filename=([^&#]*)/i,
@@ -92,7 +95,6 @@ function getIDFromURL(url) {
 	};
 	for (const key in ids) {
 		let value = tryMatch(url, ids[key], 1);
-		Z.debug(value);
 		if (!value) return false;
 		ids[key] = value;
 	}
@@ -224,7 +226,6 @@ function getSearchResults(doc, url, checkOnly) {
 		rows = doc.querySelectorAll('table.result-table-list tbody tr,table.list_table tbody tr');
 		aSlector = 'td.name > a,td.seq+td > a';
 	}
-	Z.debug(rows.length);
 	if (!rows.length) return false;
 	for (let i = 0; i < rows.length; i++) {
 		let row = rows[i];
@@ -237,8 +238,10 @@ function getSearchResults(doc, url, checkOnly) {
 		items[JSON.stringify({
 			url: href,
 			cite: text(row, 'td.quote'),
-			cookieName: attr(row, '[name="CookieName"]', 'value')
+			cookieName: attr(row, '[name="CookieName"]', 'value'),
+			downloadlink: attr(row, 'td.operat > a')
 		})] = `【${i + 1}】${title}`;
+		// Z.debug(items);
 	}
 	return found ? items : false;
 }
@@ -247,23 +250,31 @@ async function doWeb(doc, url) {
 	if (detectWeb(doc, url) == "multiple") {
 		let items = await Z.selectItems(getSearchResults(doc, url, false));
 		if (!items) return;
-		Z.debug(items);
 		for (let key in items) {
-			let keyObj = JSON.parse(key);
-			let doc = await requestDocument(keyObj.url);
-			// Z.debug(innerText(doc, 'body'));
-			// If CAPTCHA occurs, notify user to handle it
-			if (doc.querySelector('#verify_pic')) {
-				let newItem = new Z.Item('webpage');
-				newItem.title = `❌验证码错误！（CAPTCHA Erro!）❌`;
-				newItem.url = keyObj.url;
-				newItem.abstractNote
-					= '原始条目在批量抓取过程中遇到验证码，这通常是您向知网请求过于频繁导致的。原始条目的链接已经保存到本条目中，请考虑随后打开这个链接并重新抓取。\n'
-					+ 'Encountered CAPTCHA during batch scrape process with original item, which is usually caused by your frequent requests to CNKI. The link to original item has been saved to this entry. Please consider opening this link later and re scrap.';
-				newItem.complete();
-				continue;
+			let itemKey = JSON.parse(key);
+			try {
+				let doc = await requestDocument(itemKey.url);
+				// CAPTCHA
+				if (doc.querySelector('#verify_pic')) {
+					throw new TypeError('❌打开页面过程中遇到验证码❌');
+				}
+				await scrape(doc, itemKey.url, itemKey);
 			}
-			await scrape(doc, keyObj.url, keyObj.cite);
+			catch (erro) {
+				if (Object.keys(items).some(element => JSON.parse(element).cookieName)) {
+					await batchScrapeWithSE(items);
+					break;
+				}
+				else {
+					var debugItem = new Z.Item('webpage');
+					debugItem.title = `❌验证码错误！（CAPTCHA Erro!）❌`;
+					debugItem.url = itemKey.url;
+					debugItem.abstractNote
+						= '原始条目在批量抓取过程中遇到验证码，这通常是您向知网请求过于频繁导致的。原始条目的链接已经保存到本条目中，请考虑随后打开这个链接并重新抓取。\n'
+						+ 'Encountered CAPTCHA during batch scrape process with original item, which is usually caused by your frequent requests to CNKI. The link to original item has been saved to this entry. Please consider opening this link later and re scrap.';
+					continue;
+				}
+			}
 		}
 	}
 	// CHKI thingker
@@ -271,204 +282,198 @@ async function doWeb(doc, url) {
 		await scrapeZhBook(doc, url);
 	}
 	// Scholar book
-	else if(attr(doc, '#paramdbcode', 'value') == 'WWBD') {
+	else if (attr(doc, '#paramdbcode', 'value') == 'WWBD') {
 		await scrapeDoc(doc, getIDFromPage(doc, url));
 	}
 	else {
-		await scrape(doc, url);
+		await scrape(
+			doc,
+			url,
+			{ url: '', cite: '', cookieName: '', downloadlink: '' }
+		);
 	}
 }
 
-async function scrape(doc, url = doc.location.href, cite) {
+async function scrape(doc, url = doc.location.href, itemKey) {
 	var isSpace = /cnki\.com\.cn/.test(url);
 	ids = isSpace ? getIDFromSpaceURL(url) : getIDFromPage(doc, url);
+	Z.debug('scrape single item with ids:');
 	Z.debug(ids);
-	var postData, refer, referText;
 
 	/*
 	In some rare cases, an exception occurred while scrape item,
 	but the program was not correctly guided to the next scrape scheme,
 	and in this case, debugMode needs to be applied to save any potentially useful debugging information.
 	 */
-	var debugMode = false;
-	var debugItem = new Z.Item('note');
-	debugItem.title = 'debug';
 	try {
-		Z.debug('use API showExport');
-		// Due to CNKI's anti crawler feature, fixed text is used during debugging to avoid frequent requests
-		/*
-		referText = {
-			"status": 200,
-			"headers": {
-				"connection": "close",
-				"content-encoding": "br",
-				"content-type": "text/plain;charset=utf-8",
-				"date": "Fri, 01 Dec 2023 19:27:19 GMT",
-				"transfer-encoding": "chunked",
-				"vary": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers",
-			},
-			"body": "<ul class='literature-list'><li>%0 Journal Article<br>%A 李儒\n%A 李泽慧\n%A 郑明和\n%A 钟良军\n%A 丁佩惠<br>%+ 杭州师范大学附属医院口腔医学中心;杭州师范大学口腔医学院;浙江大学医学院附属口腔医院,浙江大学口腔医学院浙江省口腔疾病临床医学研究中心;<br>%T 光生物调节疗法治疗口腔黏膜病的相关机制<br>%J 激光生物学报<br>%D 2023<br>%V 32<br>%N 05<br>%K 光生物调节;治疗;口腔黏膜病;发色团;双相剂量反应<br>%X 光生物调节疗法作为口腔黏膜病治疗的辅助手段发展迅速，它通过细胞吸收光子能量，产生光化学效应，从而调节各种各样的生物过程来达到治疗目的。本文就减少炎症、加速组织愈合、缓解疼痛以及光生物调节的双向剂量作用4个方面进行综述，并深入探讨了其作用机制，以便为临床医师应用光生物调节疗法治疗口腔黏膜病提供更好的临床决策和依据。<br>%P 403-413<br>%@ 1007-7146<br>%L 43-1264/Q<br>%W CNKI<br></li></ul><input id=\"traceid\" type=\"hidden\" value=\"f1f8e54793124a53b1ffbcf20d530b56.174.17014588396030201\">"
-		}
-		
-		// During debugging, manually throw errors to guide the program to run inward.
-		*/
-		// referText = false;
-		// throw ReferenceError;
-
-
-		postData = `FileName=${ids.dbname}!${ids.filename}!1!0`
-			+ '&DisplayMode=EndNote'
-			+ '&OrderParam=0'
-			+ '&OrderType=desc'
-			+ '&SelectField='
-			+ '&PageIndex=1'
-			+ '&PageSize=20'
-			+ '&language='
-			+ '&uniplatform=NZKPT'
-			+ `&random=${Math.random()}`;
-		refer = 'https://kns.cnki.net/dm/manage/export.html?'
-			+ `filename=${ids.dbname}!${ids.filename}!1!0`
-			+ '&displaymode=NEW'
-			+ '&uniplatform=NZKPT';
-		referText = await request(
-			'https://kns.cnki.net/dm/api/ShowExport',
-			{
-				method: 'POST',
-				body: postData,
-				headers: {
-					Referer: refer
-				}
-			}
-		);
-		debugItem.url = url;
-		debugItem.notes.push(referText);
-		Z.debug('get response from API showExport:');
-		Z.debug(referText);
-
-		if (!referText.body) {
-			Z.debug('Failed to retrieve data from API: ShowExport');
-			throw ReferenceError;
-		}
-		referText = referText.body
-			// prefix
-			.replace(/^<ul class='literature-list'><li>/, '')
-			// suffix
-			.replace(/<br><\/li><\/ul><input.*>$/, '');
+		await scrapeWithShowExport(doc, ids, itemKey);
 	}
 	catch (error1) {
-		Z.debug('use API GetExport');
-		debugItem.notes.push(error1);
-		referText = '';
 		try {
-			// Due to CNKI's anti crawler feature, fixed text is used during debugging to avoid frequent requests
-			/*
-			referText = {
-				"code": 1,
-				"msg": "返回成功",
-				"data": [
-					{
-						"key": "GB/T 7714-2015 格式引文",
-						"value": [
-							"[1]张福锁,王激清,张卫峰等.中国主要粮食作物肥料利用率现状与提高途径[J].土壤学报,2008(05):915-924."
-						]
-					},
-					{
-						"key": "知网研学（原E-Study）",
-						"value": [
-							"DataType: 1<br>Title-题名: 中国主要粮食作物肥料利用率现状与提高途径<br>Author-作者: 张福锁;王激清;张卫峰;崔振岭;马文奇;陈新平;江荣风;<br>Source-刊名: 土壤学报<br>Year-年: 2008<br>PubTime-出版时间: 2008-09-15<br>Keyword-关键词: 肥料农学效率;氮肥利用率;影响因素;提高途径<br>Summary-摘要: 总结了近年来在全国粮食主产区进行的1 333个田间试验结果,分析了目前条件下中国主要粮食作物水稻、小麦和玉米氮磷钾肥的偏生产力、农学效率、肥料利用率和生理利用率等,发现水稻、小麦和玉米的氮肥农学效率分别为10.4 kg kg-1、8.0 kg kg-1和9.8 kg kg-1,氮肥利用率分别为28.3%、28.2%和26.1%,远低于国际水平,与20世纪80年代相比呈下降趋势。造成肥料利用率低的主要原因包括高产农田过量施肥,忽视土壤和环境养分的利用,作物产量潜力未得到充分发挥以及养分损失未能得到有效阻控等。要大幅度提高肥料利用率就必须从植物营养学、土壤学、农学等多学科联合攻关入手,充分利用来自土壤和环境的养分资源,实现根层养分供应与高产作物需求在数量上匹配、时间上同步、空间上一致,同时提高作物产量和养分利用效率,协调作物高产与环境保护。<br>Period-期: 05<br>PageCount-页数: 10<br>Page-页码: 915-924<br>SrcDatabase-来源库: 期刊<br>Organ-机构: 农业部植物营养与养分循环重点实验室教育部植物-土壤相互作用重点实验室中国农业大学资源与环境学院;河北农业大学资源与环境学院;<br>Link-链接: https://kns.cnki.net/kcms2/article/abstract?v=2Wn7gbiy3W_uaYxWWHbfX6Eo_zqFxhUVFviONVwAOwGJb2qk1H2f2iCbMlOvOoP0DDONsYAP4T3EvRsDbBj1xyCMf7DOnq6aiLuQE42fefZ_sYdhZ4stRfXyaoK7TPbe&uniplatform=NZKPT&language=CHS<br>"
-						]
-					},
-					{
-						"key": "EndNote",
-						"value": [
-							"%0 Journal Article<br>%A 张福锁%A 王激清%A 张卫峰%A 崔振岭%A 马文奇%A 陈新平%A 江荣风<br>%+ 农业部植物营养与养分循环重点实验室教育部植物-土壤相互作用重点实验室中国农业大学资源与环境学院;河北农业大学资源与环境学院;<br>%T 中国主要粮食作物肥料利用率现状与提高途径<br>%J 土壤学报<br>%D 2008<br>%N 05<br>%K 肥料农学效率;氮肥利用率;影响因素;提高途径<br>%X 总结了近年来在全国粮食主产区进行的1 333个田间试验结果,分析了目前条件下中国主要粮食作物水稻、小麦和玉米氮磷钾肥的偏生产力、农学效率、肥料利用率和生理利用率等,发现水稻、小麦和玉米的氮肥农学效率分别为10.4 kg kg-1、8.0 kg kg-1和9.8 kg kg-1,氮肥利用率分别为28.3%、28.2%和26.1%,远低于国际水平,与20世纪80年代相比呈下降趋势。造成肥料利用率低的主要原因包括高产农田过量施肥,忽视土壤和环境养分的利用,作物产量潜力未得到充分发挥以及养分损失未能得到有效阻控等。要大幅度提高肥料利用率就必须从植物营养学、土壤学、农学等多学科联合攻关入手,充分利用来自土壤和环境的养分资源,实现根层养分供应与高产作物需求在数量上匹配、时间上同步、空间上一致,同时提高作物产量和养分利用效率,协调作物高产与环境保护。<br>%P 915-924<br>%@ 0564-3929<br>%L 32-1119/P<br>%W CNKI<br>"
-						]
-					}
-				],
-				"traceid": "a7af1c2425ec49b5973f756b194256c6.191.17014617381526837"
-			}
-			*/
-			// During debugging, manually throw errors to guide the program to run inward
-			// referText = false;
-			// throw ReferenceError;
-
-			postData = `filename=${ids.dbname}!${ids.filename}!1!0`
-				+ '&displaymode=GBTREFER%2Celearning%2CEndNote';
-			referText = await requestJSON(
-				'https://kns.cnki.net/dm/API/GetExport?uniplatform=NZKPT',
-				{
-					method: 'POST',
-					body: postData,
-					headers: {
-						Referer: ids.url
-					}
-				}
-			);
-			debugItem.notes.push(referText);
-			Z.debug('get respond from API GetExport:');
-			Z.debug(referText);
-
-			if (!referText.body) {
-				Z.debug('Failed to retrieve data from API: GetExport');
-				throw ReferenceError;
-			}
-			referText = referText.data[2].value[0];
+			await scrapeWithGetExport(doc, ids, itemKey);
 		}
 		catch (error2) {
-			debugItem.notes.push(error2);
-			referText = '';
-			// debugItem.notes.push(innerText(doc, 'body'));
 			// Value return from API is invalid, scrape metadata from webpage
-			Z.debug('scraping from page...');
-			if (!isSpace) {
-				await scrapeDoc(doc, ids, cite);
-			}
+			if (!isSpace) await scrapeDoc(doc, ids, itemKey);
 		}
-	}
-	if (debugMode) debugItem.complete();
-	if (/^%T /m.test(referText)) {
-		Z.debug("Get referText from API successfuly!");
-		Z.debug(referText);
-		referText = referText
-			// breakline
-			.replace(/<br>|\r/g, '\n')
-			// split keywords
-			.replace(/^%([KAYI]) .*/gm, function (match) {
-				let tag = match[1];
-				return match.replace(/[,;，；]\s?/g, `\n%${tag} `);
-			})
-			.replace(/^%R /m, '%U ')
-			// 9见于学位论文，表示博士学位或硕士学位；~见于标准，表示国家标准或行业标准
-			.replace(/^%[9~] /m, '%R ')
-			.replace(/^%V 0?/m, '%V ')
-			.replace(/^%N 0?/m, '%N ')
-			// \t in abstract
-			.replace(/\t/g, '')
-			.replace(/(\n\s*)+/g, '\n');
-		Z.debug(referText);
-		var translator = Zotero.loadTranslator("import");
-		// Refer/BibIX
-		translator.setTranslator('881f60f2-0802-411a-9228-ce5f47b64c7d');
-		translator.setString(referText);
-		translator.setHandler('itemDone', (_obj, newItem) => {
-			switch (newItem.itemType) {
-				case 'statute':
-					newItem.itemType = 'standard';
-					newItem.number = newItem.volume;
-					delete newItem.volume;
-					break;
-			}
-			fixItem(newItem, doc, ids, cite);
-			newItem.complete();
-		});
-		await translator.translate();
-	}
-	else {
-		await scrapeDoc(doc, ids, cite);
 	}
 }
 
-async function scrapeDoc(doc, ids, cite) {
+async function scrapeWithShowExport(doc, ids, itemKey) {
+	Z.debug('use API ShowExport');
+	// Due to CNKI's anti crawler feature, fixed text is used during debugging to avoid frequent requests
+	/*
+	referText = {
+		"status": 200,
+		"headers": {
+			"connection": "close",
+			"content-encoding": "br",
+			"content-type": "text/plain;charset=utf-8",
+			"date": "Fri, 01 Dec 2023 19:27:19 GMT",
+			"transfer-encoding": "chunked",
+			"vary": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers",
+		},
+		"body": "<ul class='literature-list'><li>%0 Journal Article<br>%A 李儒\n%A 李泽慧\n%A 郑明和\n%A 钟良军\n%A 丁佩惠<br>%+ 杭州师范大学附属医院口腔医学中心;杭州师范大学口腔医学院;浙江大学医学院附属口腔医院,浙江大学口腔医学院浙江省口腔疾病临床医学研究中心;<br>%T 光生物调节疗法治疗口腔黏膜病的相关机制<br>%J 激光生物学报<br>%D 2023<br>%V 32<br>%N 05<br>%K 光生物调节;治疗;口腔黏膜病;发色团;双相剂量反应<br>%X 光生物调节疗法作为口腔黏膜病治疗的辅助手段发展迅速，它通过细胞吸收光子能量，产生光化学效应，从而调节各种各样的生物过程来达到治疗目的。本文就减少炎症、加速组织愈合、缓解疼痛以及光生物调节的双向剂量作用4个方面进行综述，并深入探讨了其作用机制，以便为临床医师应用光生物调节疗法治疗口腔黏膜病提供更好的临床决策和依据。<br>%P 403-413<br>%@ 1007-7146<br>%L 43-1264/Q<br>%W CNKI<br></li></ul><input id=\"traceid\" type=\"hidden\" value=\"f1f8e54793124a53b1ffbcf20d530b56.174.17014588396030201\">"
+	}
+	*/
+	// During debugging, manually throw errors to guide the program to run inward.
+	// referText = false;
+	// throw ReferenceError;
+
+	let postData = `FileName=${ids.dbname}!${ids.filename}!1!0`
+		+ '&DisplayMode=EndNote'
+		+ '&OrderParam=0'
+		+ '&OrderType=desc'
+		+ '&SelectField='
+		+ '&PageIndex=1'
+		+ '&PageSize=20'
+		+ '&language='
+		+ '&uniplatform=NZKPT'
+		+ `&random=${Math.random()}`;
+	let refer = 'https://kns.cnki.net/dm/manage/export.html?'
+		+ `filename=${ids.dbname}!${ids.filename}!1!0`
+		+ '&displaymode=NEW'
+		+ '&uniplatform=NZKPT';
+	let referText = await request(
+		'https://kns.cnki.net/dm/api/ShowExport',
+		{
+			method: 'POST',
+			body: postData,
+			headers: {
+				Referer: refer
+			}
+		}
+	);
+	Z.debug('get response from API ShowExport:');
+	Z.debug(referText);
+
+	if (!referText.body) {
+		throw new ReferenceError('Failed to retrieve data from API: ShowExport');
+	}
+	referText = referText.body
+		// prefix
+		.replace(/^<ul class='literature-list'><li>/, '')
+		// suffix
+		.replace(/<br><\/li><\/ul><input.*>$/, '');
+	await parseRefer(referText, doc, ids, itemKey);
+}
+
+async function scrapeWithGetExport(doc, ids, itemKey) {
+	Z.debug('use API GetExport');
+	// Due to CNKI's anti crawler feature, fixed text is used during debugging to avoid frequent requests
+	/*
+	referText = {
+		"code": 1,
+		"msg": "返回成功",
+		"data": [
+			{
+				"key": "GB/T 7714-2015 格式引文",
+				"value": [
+					"[1]张福锁,王激清,张卫峰等.中国主要粮食作物肥料利用率现状与提高途径[J].土壤学报,2008(05):915-924."
+				]
+			},
+			{
+				"key": "知网研学（原E-Study）",
+				"value": [
+					"DataType: 1<br>Title-题名: 中国主要粮食作物肥料利用率现状与提高途径<br>Author-作者: 张福锁;王激清;张卫峰;崔振岭;马文奇;陈新平;江荣风;<br>Source-刊名: 土壤学报<br>Year-年: 2008<br>PubTime-出版时间: 2008-09-15<br>Keyword-关键词: 肥料农学效率;氮肥利用率;影响因素;提高途径<br>Summary-摘要: 总结了近年来在全国粮食主产区进行的1 333个田间试验结果,分析了目前条件下中国主要粮食作物水稻、小麦和玉米氮磷钾肥的偏生产力、农学效率、肥料利用率和生理利用率等,发现水稻、小麦和玉米的氮肥农学效率分别为10.4 kg kg-1、8.0 kg kg-1和9.8 kg kg-1,氮肥利用率分别为28.3%、28.2%和26.1%,远低于国际水平,与20世纪80年代相比呈下降趋势。造成肥料利用率低的主要原因包括高产农田过量施肥,忽视土壤和环境养分的利用,作物产量潜力未得到充分发挥以及养分损失未能得到有效阻控等。要大幅度提高肥料利用率就必须从植物营养学、土壤学、农学等多学科联合攻关入手,充分利用来自土壤和环境的养分资源,实现根层养分供应与高产作物需求在数量上匹配、时间上同步、空间上一致,同时提高作物产量和养分利用效率,协调作物高产与环境保护。<br>Period-期: 05<br>PageCount-页数: 10<br>Page-页码: 915-924<br>SrcDatabase-来源库: 期刊<br>Organ-机构: 农业部植物营养与养分循环重点实验室教育部植物-土壤相互作用重点实验室中国农业大学资源与环境学院;河北农业大学资源与环境学院;<br>Link-链接: https://kns.cnki.net/kcms2/article/abstract?v=2Wn7gbiy3W_uaYxWWHbfX6Eo_zqFxhUVFviONVwAOwGJb2qk1H2f2iCbMlOvOoP0DDONsYAP4T3EvRsDbBj1xyCMf7DOnq6aiLuQE42fefZ_sYdhZ4stRfXyaoK7TPbe&uniplatform=NZKPT&language=CHS<br>"
+				]
+			},
+			{
+				"key": "EndNote",
+				"value": [
+					"%0 Journal Article<br>%A 张福锁%A 王激清%A 张卫峰%A 崔振岭%A 马文奇%A 陈新平%A 江荣风<br>%+ 农业部植物营养与养分循环重点实验室教育部植物-土壤相互作用重点实验室中国农业大学资源与环境学院;河北农业大学资源与环境学院;<br>%T 中国主要粮食作物肥料利用率现状与提高途径<br>%J 土壤学报<br>%D 2008<br>%N 05<br>%K 肥料农学效率;氮肥利用率;影响因素;提高途径<br>%X 总结了近年来在全国粮食主产区进行的1 333个田间试验结果,分析了目前条件下中国主要粮食作物水稻、小麦和玉米氮磷钾肥的偏生产力、农学效率、肥料利用率和生理利用率等,发现水稻、小麦和玉米的氮肥农学效率分别为10.4 kg kg-1、8.0 kg kg-1和9.8 kg kg-1,氮肥利用率分别为28.3%、28.2%和26.1%,远低于国际水平,与20世纪80年代相比呈下降趋势。造成肥料利用率低的主要原因包括高产农田过量施肥,忽视土壤和环境养分的利用,作物产量潜力未得到充分发挥以及养分损失未能得到有效阻控等。要大幅度提高肥料利用率就必须从植物营养学、土壤学、农学等多学科联合攻关入手,充分利用来自土壤和环境的养分资源,实现根层养分供应与高产作物需求在数量上匹配、时间上同步、空间上一致,同时提高作物产量和养分利用效率,协调作物高产与环境保护。<br>%P 915-924<br>%@ 0564-3929<br>%L 32-1119/P<br>%W CNKI<br>"
+				]
+			}
+		],
+		"traceid": "a7af1c2425ec49b5973f756b194256c6.191.17014617381526837"
+	}
+	*/
+	// During debugging, manually throw errors to guide the program to run inward
+	// referText = false;
+	// throw ReferenceError;
+
+	let postData = `filename=${ids.dbname}!${ids.filename}!1!0`
+		+ '&displaymode=GBTREFER%2Celearning%2CEndNote';
+	let referText = await requestJSON(
+		'https://kns.cnki.net/dm/API/GetExport?uniplatform=NZKPT',
+		{
+			method: 'POST',
+			body: postData,
+			headers: {
+				Referer: ids.url
+			}
+		}
+	);
+	Z.debug('get respond from API GetExport:');
+	Z.debug(referText);
+
+	if (!referText.body) {
+		throw new ReferenceError('Failed to retrieve data from API: GetExport');
+	}
+	referText = referText.data[2].value[0];
+	await parseRefer(referText, doc, ids, itemKey);
+}
+
+async function parseRefer(referText, doc, ids, itemKey) {
+	if (!/%T /.test(referText)) throw TypeError;
+	Z.debug("Get referText from API successfuly!");
+	referText = referText
+		// breakline
+		.replace(/<br>\s*|\r/g, '\n')
+		// split keywords
+		.replace(/^%([KAYI]) .*/gm, function (match) {
+			let tag = match[1];
+			return match.replace(/[,;，；]\s?/g, `\n%${tag} `);
+		})
+		.replace(/^%R /m, '%U ')
+		// 9见于学位论文，表示博士学位或硕士学位；~见于标准，表示国家标准或行业标准
+		.replace(/^%[9~] /m, '%R ')
+		.replace(/^%V 0?/m, '%V ')
+		.replace(/^%N 0?/m, '%N ')
+		// \t in abstract
+		.replace(/\t/g, '')
+		.replace(/(\n\s*)+/g, '\n');
+	Z.debug(referText);
+	var translator = Zotero.loadTranslator("import");
+	// Refer/BibIX
+	translator.setTranslator('881f60f2-0802-411a-9228-ce5f47b64c7d');
+	translator.setString(referText);
+	translator.setHandler('itemDone', (_obj, newItem) => {
+		switch (newItem.itemType) {
+			case 'statute':
+				newItem.itemType = 'standard';
+				newItem.number = newItem.volume;
+				delete newItem.volume;
+				break;
+		}
+		newItem = Object.assign(newItem, fixItem(newItem, doc, ids, itemKey));
+		newItem.complete();
+	});
+	await translator.translate();
+}
+
+async function scrapeDoc(doc, ids, itemKey) {
+	Z.debug('scraping from document...');
 	var newItem = new Zotero.Item(getTypeFromDBName(ids));
 
 	/* Click to get a full abstract in a single article page */
@@ -492,7 +497,7 @@ async function scrapeDoc(doc, ids, cite) {
 	// Keywords sometimes appear as a whole paragraph
 	if (!tags.length) {
 		tags = text(doc, 'div.doc p.keywords') || label2Text(doc, 'Keywords');
-		tags = tags.split(/[,;，；n]\s*/g)
+		tags = tags.split(/[,;，；n]\s*/g);
 	}
 	newItem.tags = tags.map(element => ({ tag: element }));
 
@@ -512,14 +517,14 @@ async function scrapeDoc(doc, ids, cite) {
 	newItem.place = label2Text(doc, '会议地点');
 	var fieldMap = {
 		title: 'div.doc h1, .h1-scholar',
-		pages: 'div.doc p.total-inform span:nth-child(2)',
-		university: 'div.doc h3:last-child'
+		pages: 'div.doc p.total-inform span:nth-child(2)'
+		// 太容易误选了
+		// university: 'div.doc h3:last-child'
 	};
 	for (let field in fieldMap) {
 		newItem[field] = text(doc, fieldMap[field]);
 	}
 	if (newItem.title.includes('\n')) {
-		Z.debug(`title: ${title.split('\n')}`);
 		newItem.extra += `titleTranslation: ${newItem.title.split('\n')[1]}`;
 		newItem.title = newItem.title.split('\n')[0];
 	}
@@ -528,14 +533,13 @@ async function scrapeDoc(doc, ids, cite) {
 		newItem.pages = tryMatch(newItem.pages, /[\D0]*([\d,.+-]+)/, 1);
 	}
 	else {
-		newItem.pages = label2Text(doc, 'Pages')
+		newItem.pages = label2Text(doc, 'Pages');
 	}
-	fixItem(newItem, doc, ids, cite);
+	fixItem(newItem, doc, ids, itemKey);
 	newItem.complete();
 }
 
-/* 通过变量提升起效 */
-function fixItem(newItem, doc, ids, cite) {
+function fixItem(newItem, doc, ids, itemKey) {
 	switch (newItem.itemType) {
 		case 'journalArticle':
 			// CN 中国刊物编号，非refworks中的callNumber
@@ -572,10 +576,11 @@ function fixItem(newItem, doc, ids, cite) {
 		.replace(/\s*[\r\n]\s*/g, '\n')
 		.replace(/&lt;.*?&gt;/g, '')
 		.replace(/^＜正＞/, '');
-	if (cite) newItem.extra += `\ncite: ${cite}`;
+	if (itemKey.cite) newItem.extra += `\ncite: ${itemKey.cite}`;
 	// Build a shorter url
-	newItem.url = ids.url.includes("cnki.net")
-		? ids.url
+	let url = itemKey.url || ids.url;
+	newItem.url = url.includes("cnki.net")
+		? url
 		: 'https://kns.cnki.net/KCMS/detail/detail.aspx?'
 		+ `dbcode=${ids.dbcode}`
 		+ `&dbname=${ids.dbname}`
@@ -599,17 +604,20 @@ function fixItem(newItem, doc, ids, cite) {
 	var keepPDF = Z.getHiddenPref('CNKIPDF');
 	if (keepPDF === undefined) keepPDF = true;
 	if (ids.url.includes('KXReader/Detail')) {
-		newItem.attachments.push({
-			title: 'Snapshot',
-			document: doc
-		});
+		newItem.attachments = [
+			{
+				title: 'Snapshot',
+				document: doc
+			}
+		];
 	}
 	else {
 		newItem.attachments = getAttachments(doc, keepPDF);
 	}
+	return newItem;
 }
 
-async function scrapeZhBook(doc, url, cite) {
+async function scrapeZhBook(doc, url, itemKey) {
 	var bookItem = new Z.Item(detectWeb(doc, url));
 	bookItem.title = text(doc, '#b-name, .art-title > h1');
 	bookItem.abstractNote = text(doc, '[name="contentDesc"], .desc-content').replace(/\n+/, '\n');
@@ -621,7 +629,7 @@ async function scrapeZhBook(doc, url, cite) {
 	bookItem.creators.forEach(element => element.fieldMode = 1);
 	var data = innerText(doc, '.bc_a, .desc-info')
 		.split('\n')
-		.map(element => {
+		.map((element) => {
 			return [tryMatch(element, /^(.+)：/, 1).replace(/\s/g, ''), tryMatch(element, /：(.*)/, 1)];
 		})
 		.filter(element => element);
@@ -631,9 +639,10 @@ async function scrapeZhBook(doc, url, cite) {
 			let keyVal = this.innerData.find(element => element[0] == label);
 			return keyVal
 				? keyVal[1]
-				: ''
+				: '';
 		}
 	};
+	Z.debug('scrape zh book with data:');
 	Z.debug(data);
 	bookItem.edition = data.get('版次');
 	bookItem.pages = data.get('页数');
@@ -644,7 +653,76 @@ async function scrapeZhBook(doc, url, cite) {
 	bookItem.language = 'zh-CN';
 	bookItem.ISBN = data.get('国际标准书号ISBN');
 	bookItem.libraryCatalog = data.get('所属分类');
+	if (itemKey.cite) bookItem.extra += `\ncite: ${itemKey.cite}`;
 	bookItem.complete();
+}
+
+async function batchScrapeWithSE(items) {
+	var itemKeys = Object.keys(items)
+		.map(element => JSON.parse(element))
+		.filter(element => element.cookieName);
+	var fileNames = itemKeys.map(element => element.cookieName);
+	Z.debug('use API showExport - (batch)');
+	// Due to CNKI's anti crawler feature, fixed text is used during debugging to avoid frequent requests
+
+	/* let referText = {
+		status: 200,
+		headers: {
+			connection: "close",
+			"content-encoding": "br",
+			"content-type": "text/plain;charset=utf-8",
+			date: "Sun,03 Dec 2023 14: 56: 40 GMT",
+			"transfer-encoding": "chunked"
+		},
+		body: "<ul class='literature-list'><li> %0 Journal Article<br> %A 贾玲 <br> %+ 晋中市太谷区北洸乡人民政府;<br> %T 抗旱转基因小麦的研究进展<br> %J 种子科技<br> %D 2023<br> %V 41<br>%N 17<br> %K 小麦;抗旱;转基因<br> %X 受气候复杂多变的影响，小麦生长期间干旱胁迫成为影响其产量的主要因素之一，利用基因工程技术提高小麦抗旱性非常必要。目前，已鉴定出一部分与小麦抗旱性相关并可以提高产量的基因，但与水稻、玉米和其他粮食作物相比，对抗旱转基因小麦的开发研究较少。文章重点关注小麦耐旱性的评价标准以及转基因小麦品种在提高抗旱性方面的进展，讨论了当前在转基因小麦方面取得的一些成就和发展中存在的问题，以期为小麦抗旱性基因工程育种提供理论依据。<br>%P 11-14<br> %@ 1005-2690<br> %U https: //link.cnki.net/doi/10.19904/j.cnki.cn14-1160/s.2023.17.004<br> %R 10.19904/j.cnki.cn14-1160/s.2023.17.004<br> %W CNKI<br> </li><li> %0 Journal Article<br> %A 刘志宏<br> %A 田媛<br> %A 陈红娜<br> %A 周志豪<br> %A 郑洁<br> %A 杨晓怀 <br> %+深圳市农业科技促进中心;暨南大学食品科学与工程系;<br> %T 水稻转基因育种的研究进展与应用现状<br> %J 中国种业<br> %D 2023<br> %V <br> %N 09<br> %K 转基因育种;水稻;病虫害;除草剂<br> %X 随着生物技术发展的不断深入，我国水稻种业的发展也面临着全新的机遇和挑战。目前，改善水稻品种质量的主要方法有分子标记技术、基因编辑技术和转基因技术。其中，转基因水稻是利用生物技术手段将外源基因转入到目标水稻的基因组中，通过外源基因的表达，获得具有抗病、抗虫、抗除草剂等优良性状的水稻品种。近年来，国内外在采用转基因技术进行水稻育种，提升水稻产量、改善水稻品质方面具有较多的研究进展。在阐述转基因技术工作原理的基础上，概述国内外利用转基因技术在优质水稻育种方面的研究进展，进一步探究转基因技术在我国水稻育种领域的发展前景。<br>%P 11-17<br> %@ 1671-895X<br> %U https: //link.cnki.net/doi/10.19462/j.cnki.1671-895x.2023.09.038<br> %R10.19462/j.cnki.1671-895x.2023.09.038<br> %W CNKI<br> </li><li> %0 Journal Article<br> %A 孙萌<br> %A 李荣田 <br> %+ 黑龙江大学生命科学学院/黑龙江省普通高等学校分子生物学重点实验室;黑龙江大学农业微生物技术教育部工程研究中心;<br> %T 基于文献计量学的中国水稻转录组研究进展<br> %J 环境工程<br> %D 2023<br> %V 41<br> %N S2<br> %K 水稻转录组;文献计量学;VOSviewer<br> %X 为了探究水稻转录组(Ricetranscriptome)研究的热点与趋势,本研究基于CNKI数据库,基于文献计量学的方法,对中国的发文量、关键词、研究机构、作者、基金、学科方向,进行相关分析。发现水稻转录组的研究进展与趋势动态,旨在为水稻转录组等领域的研究人员提供一定量的数据进行参考。结果显示:2003—2021年水稻转录组的研究论文数量共1512篇;文献的数量逐年增加,其中在2020年的产出数量最高;发文量前3的作者分别是刘向东、吴锦文、梁五生;华中农业大学,南京农业大学,浙江大学,中国农业科学院,华南农业大学发表的水稻转录组文献数量居全国前5位;该领域主要研究学科是,农作物、植物保护、园艺、生物学和林业等;国家自然科学基金是支持水稻转录组研究的主要项目。综合来看,中国在研究水稻转录组领域处于优势地位。<br>%P 1016-1019<br> %@ 1000-8942<br> %U https://kns.cnki.net/kcms2/article/abstract?v=ebrKgZyeBkxImzDUXjcVU04XYh7-VuK-twxFNRUx7mIL4CLVOe5VfbRl0TM7H3f_mb78up_-AjT2Rwgo5xU0wbsknYXBxlrO6GG-wlfR5dIIK8MKL8g8Vmc4O-Q3_qdDWz1MlRhZmckhhPAGlFwAFQ==&uniplatform=NZKPT&language=CHS<br>%W CNKI<br> </li></ul><input id='hidMode' type='hidden' value='BATCH_DOWNLOAD,EXPORT,CLIPYBOARD,PRINT'><input id='traceid' type='hidden'value='27077cd0510c4c989a7ac58b5541a910.173062.17016154007783847'>"
+	}; */
+
+	let postData = `FileName=${fileNames.join(',')}`
+		+ '&DisplayMode=EndNote'
+		+ '&OrderParam=0'
+		+ '&OrderType=desc'
+		+ '&SelectField='
+		+ '&PageIndex=1'
+		+ '&PageSize=20'
+		+ '&language=CHS'
+		+ '&uniplatform=NZKPT'
+		+ `&random=${Math.random()}`;
+	let refer = 'https://kns.cnki.net/dm8/manage/export.html?';
+	let referText = await request(
+		'https://kns.cnki.net/dm8/api/ShowExport',
+		{
+			method: 'POST',
+			body: postData,
+			headers: {
+				Referer: refer
+			}
+		}
+	);
+	Z.debug('get batch response from API ShowExport:');
+	Z.debug(`${JSON.stringify(referText)}`);
+	if (!referText.body) {
+		throw new ReferenceError('Failed to retrieve data from API: ShowExport');
+	}
+	referText = referText.body
+		// prefix
+		.replace(/^<ul class='literature-list'>/, '')
+		// suffix
+		.replace(/<\/ul><input.*>$/, '').match(/<li>.*?<\/li>/g);
+
+	for (let i = 0; i < referText.length; i++) {
+		let text = referText[i];
+		text = text.replace(/(^<li>\s*)|(\s*<\/li>$)/g, '');
+		await parseRefer(
+			text,
+			document.createElement('div'),
+			{
+				dbname: '',
+				filename: '',
+				dbcode: '',
+				url: ''
+			},
+			itemKeys[i]);
+	}
 }
 
 // add pdf or caj to attachments, default is pdf
