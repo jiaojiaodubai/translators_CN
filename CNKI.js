@@ -9,7 +9,7 @@
 	"inRepository": true,
 	"translatorType": 4,
 	"browserSupport": "gcsibv",
-	"lastUpdated": "2023-12-03 04:25:55"
+	"lastUpdated": "2023-12-03 06:32:56"
 }
 
 /*
@@ -172,20 +172,24 @@ function getTypeFromDBName(ids) {
 		CPVD: 'conferencePaper',
 		// 国际会议 conference en zh
 		CIPD: 'conferencePaper',
-		IPFD: 'conferencePaper'
+		IPFD: 'conferencePaper',
 		// 视频 video zh
 		// CCVD
+		// 中文图书 book zh
+		// WBFD
+		// 外文图书 book en
+		// WWBD
 		// 国家标准 standard zh
-		// SCSF: 'standard',
+		SCSF: 'standard',
 		// 行业标准 standard zh
-		// SCHF: 'standard',
+		SCHF: 'standard',
 		// 标准题录 standard zh
-		// SCSD: 'standard',
+		SCSD: 'standard',
 		// 标准题录 standard en
-		// SOSD: 'standard'
+		SOSD: 'standard'
 		// 成果 achievements
 		// SNAD
-		
+
 	};
 	let db = ids.dbname.substr(0, 4).toUpperCase();
 	return dbType[db] || dbType[ids.dbcode];
@@ -262,10 +266,37 @@ async function scrape(doc, url = doc.location.href, cite) {
 	var isSpace = /cnki\.com\.cn/.test(url);
 	ids = isSpace ? getIDFromSpaceURL(url) : getIDFromPage(doc, url);
 	Z.debug(ids);
-	var postData, refer, referText = '';
-	// var debugItem = new Z.Item('note');
-	// debugItem.title = 'debug';
+	var postData, refer, referText;
+
+	/*
+	In some rare cases, an exception occurred while scrape item,
+	but the program was not correctly guided to the next scrape scheme,
+	and in this case, debugMode needs to be applied to save any potentially useful debugging information.
+	 */
+	var debugMode = false;
+	var debugItem = new Z.Item('note');
+	debugItem.title = 'debug';
 	try {
+		// Due to CNKI's anti crawler feature, fixed text is used during debugging to avoid frequent requests
+		/*
+		referText = {
+			"status": 200,
+			"headers": {
+				"connection": "close",
+				"content-encoding": "br",
+				"content-type": "text/plain;charset=utf-8",
+				"date": "Fri, 01 Dec 2023 19:27:19 GMT",
+				"transfer-encoding": "chunked",
+				"vary": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers",
+			},
+			"body": "<ul class='literature-list'><li>%0 Journal Article<br>%A 李儒\n%A 李泽慧\n%A 郑明和\n%A 钟良军\n%A 丁佩惠<br>%+ 杭州师范大学附属医院口腔医学中心;杭州师范大学口腔医学院;浙江大学医学院附属口腔医院,浙江大学口腔医学院浙江省口腔疾病临床医学研究中心;<br>%T 光生物调节疗法治疗口腔黏膜病的相关机制<br>%J 激光生物学报<br>%D 2023<br>%V 32<br>%N 05<br>%K 光生物调节;治疗;口腔黏膜病;发色团;双相剂量反应<br>%X 光生物调节疗法作为口腔黏膜病治疗的辅助手段发展迅速，它通过细胞吸收光子能量，产生光化学效应，从而调节各种各样的生物过程来达到治疗目的。本文就减少炎症、加速组织愈合、缓解疼痛以及光生物调节的双向剂量作用4个方面进行综述，并深入探讨了其作用机制，以便为临床医师应用光生物调节疗法治疗口腔黏膜病提供更好的临床决策和依据。<br>%P 403-413<br>%@ 1007-7146<br>%L 43-1264/Q<br>%W CNKI<br></li></ul><input id=\"traceid\" type=\"hidden\" value=\"f1f8e54793124a53b1ffbcf20d530b56.174.17014588396030201\">"
+		}
+		
+		// During debugging, manually throw errors to guide the program to run inward.
+		// referText = false;
+		// throw ReferenceError;
+		*/
+		
 		postData = `FileName=${ids.dbname}!${ids.filename}!1!0`
 			+ '&DisplayMode=EndNote'
 			+ '&OrderParam=0'
@@ -290,27 +321,8 @@ async function scrape(doc, url = doc.location.href, cite) {
 				}
 			}
 		);
-		// debugItem.url = url;
-		// debugItem.notes.push(referText);
-
-		/* Due to CNKI's anti crawler feature, fixed text is used during debugging to avoid frequent requests */
-		/*
-		referText = {
-			"status": 200,
-			"headers": {
-				"connection": "close",
-				"content-encoding": "br",
-				"content-type": "text/plain;charset=utf-8",
-				"date": "Fri, 01 Dec 2023 19:27:19 GMT",
-				"transfer-encoding": "chunked",
-				"vary": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers",
-			},
-			"body": "<ul class='literature-list'><li>%0 Journal Article<br>%A 李儒\n%A 李泽慧\n%A 郑明和\n%A 钟良军\n%A 丁佩惠<br>%+ 杭州师范大学附属医院口腔医学中心;杭州师范大学口腔医学院;浙江大学医学院附属口腔医院,浙江大学口腔医学院浙江省口腔疾病临床医学研究中心;<br>%T 光生物调节疗法治疗口腔黏膜病的相关机制<br>%J 激光生物学报<br>%D 2023<br>%V 32<br>%N 05<br>%K 光生物调节;治疗;口腔黏膜病;发色团;双相剂量反应<br>%X 光生物调节疗法作为口腔黏膜病治疗的辅助手段发展迅速，它通过细胞吸收光子能量，产生光化学效应，从而调节各种各样的生物过程来达到治疗目的。本文就减少炎症、加速组织愈合、缓解疼痛以及光生物调节的双向剂量作用4个方面进行综述，并深入探讨了其作用机制，以便为临床医师应用光生物调节疗法治疗口腔黏膜病提供更好的临床决策和依据。<br>%P 403-413<br>%@ 1007-7146<br>%L 43-1264/Q<br>%W CNKI<br></li></ul><input id=\"traceid\" type=\"hidden\" value=\"f1f8e54793124a53b1ffbcf20d530b56.174.17014588396030201\">"
-		}
-		// During debugging, manually throw errors to guide the program to run inward.
-		referText = false;
-		throw ReferenceError;
-		*/
+		debugItem.url = url;
+		debugItem.notes.push(referText);
 
 		if (!referText.body) {
 			Z.debug('Failed to retrieve data from API: ShowExport');
@@ -324,22 +336,10 @@ async function scrape(doc, url = doc.location.href, cite) {
 			.replace(/<br><\/li><\/ul><input.*>$/, '');
 	}
 	catch (error1) {
-		// debugItem.notes.push(error1);
+		debugItem.notes.push(error1);
+		referText = '';
 		try {
-			postData = `filename=${ids.dbname}!${ids.filename}!1!0`
-				+ '&displaymode=GBTREFER%2Celearning%2CEndNote';
-			referText = await requestJSON(
-				'https://kns.cnki.net/dm/API/GetExport?uniplatform=NZKPT',
-				{
-					method: 'POST',
-					body: postData,
-					headers: {
-						Referer: ids.url
-					}
-				}
-			);
-			// debugItem.notes.push(referText);
-			/* Due to CNKI's anti crawler feature, fixed text is used during debugging to avoid frequent requests */
+			// Due to CNKI's anti crawler feature, fixed text is used during debugging to avoid frequent requests
 			/*
 			referText = {
 				"code": 1,
@@ -366,10 +366,25 @@ async function scrape(doc, url = doc.location.href, cite) {
 				],
 				"traceid": "a7af1c2425ec49b5973f756b194256c6.191.17014617381526837"
 			}
+			
 			// During debugging, manually throw errors to guide the program to run inward
-			referText = false;
-			throw ReferenceError;
+			// referText = false;
+			// throw ReferenceError;
 			*/
+			
+			postData = `filename=${ids.dbname}!${ids.filename}!1!0`
+				+ '&displaymode=GBTREFER%2Celearning%2CEndNote';
+			referText = await requestJSON(
+				'https://kns.cnki.net/dm/API/GetExport?uniplatform=NZKPT',
+				{
+					method: 'POST',
+					body: postData,
+					headers: {
+						Referer: ids.url
+					}
+				}
+			);
+			debugItem.notes.push(referText);
 
 			if (!referText.body) {
 				Z.debug('Failed to retrieve data from API: GetExport');
@@ -379,7 +394,8 @@ async function scrape(doc, url = doc.location.href, cite) {
 			referText = referText.data[2].value[0];
 		}
 		catch (error2) {
-			// debugItem.notes.push(error2);
+			debugItem.notes.push(error2);
+			referText = '';
 			// debugItem.notes.push(innerText(doc, 'body'));
 			// Value return from API is invalid, scrape metadata from webpage
 			Z.debug('scraping from page...');
@@ -388,7 +404,7 @@ async function scrape(doc, url = doc.location.href, cite) {
 			}
 		}
 	}
-	// debugItem.complete();
+	if (debugMode) debugItem.complete();
 	if (referText) {
 		Z.debug("Get referText from api successfuly!");
 		Z.debug(referText);
@@ -396,17 +412,13 @@ async function scrape(doc, url = doc.location.href, cite) {
 			// breakline
 			.replace(/<br>|\r/g, '\n')
 			// split keywords
-			.replace(/^%K .*/gm, function (match) {
-				return match.replace(/[,;，；]\s?/g, '\n%K ');
-			})
-			.replace(/^%A .*/gm, function (match) {
-				return match.replace(/[,;，；]\s?/g, '\n%A ');
-			})
-			.replace(/^%Y .*/gm, function (match) {
-				return match.replace(/[,;，；]\s?/g, '\n%Y ');
+			.replace(/^%([KAYI]) .*/gm, function (match) {
+				let tag = match[1];
+				return match.replace(/[,;，；]\s?/g, `\n%${tag} `);
 			})
 			.replace(/^%R /m, '%U ')
-			.replace(/^%9 /m, '%R ')
+			// 9见于学位论文，表示博士学位或硕士学位；~见于标准，表示国家标准或行业标准
+			.replace(/^%[9~] /m, '%R ')
 			.replace(/^%V 0?/m, '%V ')
 			.replace(/^%N 0?/m, '%N ')
 			// \t in abstract
@@ -418,6 +430,13 @@ async function scrape(doc, url = doc.location.href, cite) {
 		translator.setTranslator('881f60f2-0802-411a-9228-ce5f47b64c7d');
 		translator.setString(referText);
 		translator.setHandler('itemDone', (_obj, newItem) => {
+			switch (newItem.itemType) {
+				case 'statute':
+					newItem.itemType = 'standard';
+					newItem.number = newItem.volume;
+					delete newItem.volume;
+					break;
+			}
 			fixItem(newItem, doc, ids, cite);
 			newItem.complete();
 		});
@@ -426,20 +445,20 @@ async function scrape(doc, url = doc.location.href, cite) {
 }
 
 async function scrapeDoc(doc, ids, cite) {
-	var fieldMap = {
-		title: 'div.doc h1',
-		abstractNote: '#ChDivSummary, div.abstract-text',
-		pages: 'div.doc p.total-inform span:nth-child(2)',
-		university: 'div.doc h3:last-child',
-	};
 	var newItem = new Zotero.Item(getTypeFromDBName(ids));
-	// Click to get a full abstract in a single article page
+
+	/* Click to get a full abstract in a single article page */
 	let moreClick = doc.querySelector('span a#ChDivSummaryMore');
 	if (moreClick) moreClick.click();
-	newItem.abstractNote = text(doc, 'span#ChDivSummary');
-	newItem.creators = Array.from(doc.querySelectorAll('div.doc h3#authorpart span'))
-		.map(e => e.textContent.trim().replace(/[0-9,]/g, ''))
-		.map(element => ZU.cleanAuthor(element, 'author'));
+	newItem.abstractNote = text(doc, 'span#ChDivSummary, div.abstract-text');
+
+	/* creators */
+	let creators = [Array.from(doc.querySelectorAll('div.doc h3#authorpart span'))
+		.map(element => element.textContent.trim().replace(/[0-9,]/g, '')),
+	label2Text(doc, '起草单位').split(/[,;，；]\s*/)].find(element => element.length);
+	newItem.creators = creators.map(element => ZU.cleanAuthor(element, 'author'));
+
+	/* tags */
 	let tags = Array.from(doc.querySelectorAll('div.doc p.keywords a')).map(element => ZU.trimInternal(element.innerText).replace(/[,;，；]$/, '')
 	);
 	// Keywords sometimes appear as a whole paragraph
@@ -448,15 +467,31 @@ async function scrapeDoc(doc, ids, cite) {
 			.split(/\n/g);
 	}
 	newItem.tags = tags.map(element => ({ tag: element }));
+
+	/* publication information */
 	let pubInfo = innerText(doc, 'div.top-tip span');
 	newItem.publicationTitle = tryMatch(pubInfo, /(.*?)\./, 1);
-	newItem.date = tryMatch(pubInfo, /\d*?(?:,)/);
+	newItem.date = tryMatch(pubInfo, /\d*?(?:,)/)
+		|| label2Text(doc, '发布日期')
+		|| label2Text(doc, '发布单位')
+		|| label2Text(doc, '会议时间');
 	newItem.volume = tryMatch(pubInfo, /(\d*)\s*\(/, 1);
 	newItem.issue = tryMatch(pubInfo, /\(0?(\d+)\)/, 1);
+
+	/* else fields */
+	newItem.number = label2Text(doc, '标准号');
 	newItem.place = label2Text(doc, '会议地点');
-	newItem.date = label2Text(doc, '会议时间');
+	var fieldMap = {
+		title: 'div.doc h1',
+		pages: 'div.doc p.total-inform span:nth-child(2)',
+		university: 'div.doc h3:last-child'
+	};
 	for (let field in fieldMap) {
 		newItem[field] = text(doc, fieldMap[field]);
+	}
+	if (newItem.title.includes('\n')) {
+		newItem.extra += `titleTranslation: ${newItem.title.split('\n')[1]}`;
+		newItem.title = newItem.title.split('\n')[0];
 	}
 	if (newItem.pages) {
 		newItem.pages = tryMatch(newItem.pages, /[\D0]*([\d,.+-]+)/, 1);
@@ -473,7 +508,7 @@ function fixItem(newItem, doc, ids, cite) {
 			delete newItem.callNumber;
 			break;
 		case 'thesis':
-			newItem.creators.forEach(element => {
+			newItem.creators.forEach((element) => {
 				element.creatorType = 'contributor';
 			});
 			newItem.creators[1].creatorType = 'Author';
@@ -490,6 +525,11 @@ function fixItem(newItem, doc, ids, cite) {
 		case 'conferencePaper':
 			newItem.conferenceName = label2Text(doc, '会议名称');
 			break;
+		case 'standard':
+			newItem.committee = label2Text(doc, '标准技术委员会');
+			newItem.libraryCatalog = label2Text(doc, '国际标准分类号');
+			newItem.status = text(doc, '.type');
+			break;
 		default:
 			break;
 	}
@@ -498,7 +538,7 @@ function fixItem(newItem, doc, ids, cite) {
 		.replace(/\s*[\r\n]\s*/g, '\n')
 		.replace(/&lt;.*?&gt;/g, '')
 		.replace(/^＜正＞/, '');
-	if (cite) newItem.extra = `cite: ${cite}`;
+	if (cite) newItem.extra += `\ncite: ${cite}`;
 	// Build a shorter url
 	newItem.url = ids.url.includes("cnki.net")
 		? ids.url
@@ -1024,6 +1064,100 @@ var testCases = [
 					},
 					{
 						"tag": "静载试验"
+					}
+				],
+				"notes": [],
+				"seeAlso": []
+			}
+		]
+	},
+	{
+		"type": "web",
+		"url": "https://kns.cnki.net/kcms2/article/abstract?v=xNq_RSSxtttpjjkPEffliNyrYFH4Wi7en9sqDOHy51yDErmntFADDrvK3ezFuQytYDBnNnqFo3j-pxGjfzTRsifLLcygCs5U3Pe2is0dqwiI3zVanIlYVqz_hsv4_RzQ74tYtpY5Thg7TPoDUwKtog==&uniplatform=NZKPT&language=CHS",
+		"items": [
+			{
+				"itemType": "standard",
+				"title": "粮油检验　小麦粉膨胀势的测定",
+				"creators": [
+					{
+						"firstName": "",
+						"lastName": "国家粮食局科学研究院",
+						"creatorType": "author",
+						"fieldMode": 1
+					},
+					{
+						"firstName": "",
+						"lastName": "农业部谷物品质监督检验测试中心",
+						"creatorType": "author",
+						"fieldMode": 1
+					},
+					{
+						"firstName": "",
+						"lastName": "山东省粮油检测中心",
+						"creatorType": "author",
+						"fieldMode": 1
+					},
+					{
+						"firstName": "",
+						"lastName": "河北省粮油质量检测中心",
+						"creatorType": "author",
+						"fieldMode": 1
+					},
+					{
+						"firstName": "",
+						"lastName": "德州粮食质量检验(中心)站",
+						"creatorType": "author",
+						"fieldMode": 1
+					},
+					{
+						"firstName": "",
+						"lastName": "云南省粮油产品质量监督检验测试中心",
+						"creatorType": "author",
+						"fieldMode": 1
+					},
+					{
+						"firstName": "",
+						"lastName": "宁夏粮油产品质量检测中心",
+						"creatorType": "author",
+						"fieldMode": 1
+					},
+					{
+						"firstName": "",
+						"lastName": "武汉市粮油食品中心检验站",
+						"creatorType": "author",
+						"fieldMode": 1
+					},
+					{
+						"firstName": "",
+						"lastName": "苏州市粮油质量监测所",
+						"creatorType": "author",
+						"fieldMode": 1
+					},
+					{
+						"firstName": "",
+						"lastName": "河南工业大学",
+						"creatorType": "author",
+						"fieldMode": 1
+					}
+				],
+				"date": "2019-05-10",
+				"archiveLocation": "CNKI",
+				"committee": "全国粮油标准化技术委员会(SAC/TC 270)",
+				"libraryCatalog": "67_040 食品技术-食品综合",
+				"number": "GB/T 37510-2019",
+				"publisher": "国家市场监督管理总局, 中国国家标准化管理委员会",
+				"type": "国家标准",
+				"url": "https://kns.cnki.net/kcms2/article/abstract?v=xNq_RSSxtttpjjkPEffliNyrYFH4Wi7en9sqDOHy51yDErmntFADDrvK3ezFuQytYDBnNnqFo3j-pxGjfzTRsifLLcygCs5U3Pe2is0dqwiI3zVanIlYVqz_hsv4_RzQ74tYtpY5Thg7TPoDUwKtog==&uniplatform=NZKPT&language=CHS",
+				"attachments": [
+					{
+						"title": "Full Text CAJ",
+						"mimeType": "application/caj",
+						"url": ""
+					}
+				],
+				"tags": [
+					{
+						"tag": "粮油检验"
 					}
 				],
 				"notes": [],
