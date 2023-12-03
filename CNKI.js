@@ -2,14 +2,14 @@
 	"translatorID": "5c95b67b-41c5-4f55-b71a-48d5d7183063",
 	"label": "CNKI",
 	"creator": "Aurimas Vinckevicius, Xingzhong Lin, jiaojiaodubai23",
-	"target": "https?://.*?(cnki\\.com)|/(kns8?s?|kcms2?|KXReader|KNavi|Kreader)",
+	"target": "https?://.*?(thinker\\.cnki)|(cnki\\.com)|/(kns8?s?|kcms2?|KXReader|KNavi|Kreader)",
 	"minVersion": "3.0",
 	"maxVersion": "",
 	"priority": 100,
 	"inRepository": true,
 	"translatorType": 4,
 	"browserSupport": "gcsibv",
-	"lastUpdated": "2023-12-03 06:32:56"
+	"lastUpdated": "2023-12-03 11:35:54"
 }
 
 /*
@@ -59,8 +59,16 @@ function detectWeb(doc, url) {
 		Z.monitorDOMChanges(searchResult, { childList: true, subtree: true });
 	}
 	if (ids) {
-		Z.debug(ids);
+		// Z.debug(ids);
 		return getTypeFromDBName(ids);
+	}
+	else if (url.includes('book/bookdetail')) {
+		// 知网心可图书馆，CNKI thingker
+		return 'book';
+	}
+	else if (url.includes('chapter/chapterdetail')) {
+		// 知网心可图书馆，CNKI thingker
+		return 'bookSection';
 	}
 	else if (multiplePattern.find(element => element.test(url)) && getSearchResults(doc, url, true)) {
 		return 'multiple';
@@ -125,10 +133,8 @@ function getIDFromSpaceURL(url) {
 
 function getTypeFromDBName(ids) {
 	const dbType = {
-		// zh
-		// CJFQ,CDFD,CMFD,CPFD,IPFD,CPVD,CCND,WBFD,SCSF,SCHF,SCSD,SNAD,CCJD,CJFN,CCVD
-		// en
-		// WWJD,IPFD,WWPD,WWBD,SOSD
+		// zh database code: CJFQ,CDFD,CMFD,CPFD,IPFD,CPVD,CCND,WBFD,SCSF,SCHF,SCSD,SNAD,CCJD,CJFN,CCVD
+		// en database code: WWJD,IPFD,WWPD,WWBD,SOSD
 		// 学术辑刊 zh
 		CCJD: 'journalArticle',
 		// 学术期刊 journal zh
@@ -175,10 +181,11 @@ function getTypeFromDBName(ids) {
 		IPFD: 'conferencePaper',
 		// 视频 video zh
 		// CCVD
+		/* 实际上无法匹配到图书的dbcode */
 		// 中文图书 book zh
-		// WBFD
+		WBFD: 'book',
 		// 外文图书 book en
-		// WWBD
+		WWBD: 'book',
 		// 国家标准 standard zh
 		SCSF: 'standard',
 		// 行业标准 standard zh
@@ -229,7 +236,8 @@ function getSearchResults(doc, url, checkOnly) {
 		found = true;
 		items[JSON.stringify({
 			url: href,
-			cite: text(row, 'td.quote')
+			cite: text(row, 'td.quote'),
+			cookieName: attr(row, '[name="CookieName"]', 'value')
 		})] = `【${i + 1}】${title}`;
 	}
 	return found ? items : false;
@@ -239,6 +247,7 @@ async function doWeb(doc, url) {
 	if (detectWeb(doc, url) == "multiple") {
 		let items = await Z.selectItems(getSearchResults(doc, url, false));
 		if (!items) return;
+		Z.debug(items);
 		for (let key in items) {
 			let keyObj = JSON.parse(key);
 			let doc = await requestDocument(keyObj.url);
@@ -256,6 +265,14 @@ async function doWeb(doc, url) {
 			}
 			await scrape(doc, keyObj.url, keyObj.cite);
 		}
+	}
+	// CHKI thingker
+	else if (url.includes('/thinker.cnki/')) {
+		await scrapeZhBook(doc, url);
+	}
+	// Scholar book
+	else if(attr(doc, '#paramdbcode', 'value') == 'WWBD') {
+		await scrapeDoc(doc, getIDFromPage(doc, url));
 	}
 	else {
 		await scrape(doc, url);
@@ -277,6 +294,7 @@ async function scrape(doc, url = doc.location.href, cite) {
 	var debugItem = new Z.Item('note');
 	debugItem.title = 'debug';
 	try {
+		Z.debug('use API showExport');
 		// Due to CNKI's anti crawler feature, fixed text is used during debugging to avoid frequent requests
 		/*
 		referText = {
@@ -293,10 +311,11 @@ async function scrape(doc, url = doc.location.href, cite) {
 		}
 		
 		// During debugging, manually throw errors to guide the program to run inward.
+		*/
 		// referText = false;
 		// throw ReferenceError;
-		*/
-		
+
+
 		postData = `FileName=${ids.dbname}!${ids.filename}!1!0`
 			+ '&DisplayMode=EndNote'
 			+ '&OrderParam=0'
@@ -323,10 +342,11 @@ async function scrape(doc, url = doc.location.href, cite) {
 		);
 		debugItem.url = url;
 		debugItem.notes.push(referText);
+		Z.debug('get response from API showExport:');
+		Z.debug(referText);
 
 		if (!referText.body) {
 			Z.debug('Failed to retrieve data from API: ShowExport');
-			Z.debug(referText);
 			throw ReferenceError;
 		}
 		referText = referText.body
@@ -336,6 +356,7 @@ async function scrape(doc, url = doc.location.href, cite) {
 			.replace(/<br><\/li><\/ul><input.*>$/, '');
 	}
 	catch (error1) {
+		Z.debug('use API GetExport');
 		debugItem.notes.push(error1);
 		referText = '';
 		try {
@@ -366,12 +387,11 @@ async function scrape(doc, url = doc.location.href, cite) {
 				],
 				"traceid": "a7af1c2425ec49b5973f756b194256c6.191.17014617381526837"
 			}
-			
+			*/
 			// During debugging, manually throw errors to guide the program to run inward
 			// referText = false;
 			// throw ReferenceError;
-			*/
-			
+
 			postData = `filename=${ids.dbname}!${ids.filename}!1!0`
 				+ '&displaymode=GBTREFER%2Celearning%2CEndNote';
 			referText = await requestJSON(
@@ -385,10 +405,11 @@ async function scrape(doc, url = doc.location.href, cite) {
 				}
 			);
 			debugItem.notes.push(referText);
+			Z.debug('get respond from API GetExport:');
+			Z.debug(referText);
 
 			if (!referText.body) {
 				Z.debug('Failed to retrieve data from API: GetExport');
-				Z.debug(referText);
 				throw ReferenceError;
 			}
 			referText = referText.data[2].value[0];
@@ -405,8 +426,8 @@ async function scrape(doc, url = doc.location.href, cite) {
 		}
 	}
 	if (debugMode) debugItem.complete();
-	if (referText) {
-		Z.debug("Get referText from api successfuly!");
+	if (/^%T /m.test(referText)) {
+		Z.debug("Get referText from API successfuly!");
 		Z.debug(referText);
 		referText = referText
 			// breakline
@@ -442,6 +463,9 @@ async function scrape(doc, url = doc.location.href, cite) {
 		});
 		await translator.translate();
 	}
+	else {
+		await scrapeDoc(doc, ids, cite);
+	}
 }
 
 async function scrapeDoc(doc, ids, cite) {
@@ -453,18 +477,22 @@ async function scrapeDoc(doc, ids, cite) {
 	newItem.abstractNote = text(doc, 'span#ChDivSummary, div.abstract-text');
 
 	/* creators */
-	let creators = [Array.from(doc.querySelectorAll('div.doc h3#authorpart span'))
-		.map(element => element.textContent.trim().replace(/[0-9,]/g, '')),
-	label2Text(doc, '起草单位').split(/[,;，；]\s*/)].find(element => element.length);
+	let creators = [
+		Array.from(doc.querySelectorAll('#authorpart span'))
+			.map(element => element.textContent.trim().replace(/[0-9,]/g, '')),
+		Array.from(doc.querySelectorAll('#authorpart a'))
+			.map(element => element.textContent.trim().replace(/[0-9,]/g, '')),
+		label2Text(doc, '起草单位').split(/[,;，；]\s*/)
+	].find(element => element.length);
 	newItem.creators = creators.map(element => ZU.cleanAuthor(element, 'author'));
 
 	/* tags */
 	let tags = Array.from(doc.querySelectorAll('div.doc p.keywords a')).map(element => ZU.trimInternal(element.innerText).replace(/[,;，；]$/, '')
 	);
 	// Keywords sometimes appear as a whole paragraph
-	if (tags.length == 0) {
-		tags = text(doc, 'div.doc p.keywords')
-			.split(/\n/g);
+	if (!tags.length) {
+		tags = text(doc, 'div.doc p.keywords') || label2Text(doc, 'Keywords');
+		tags = tags.split(/[,;，；n]\s*/g)
 	}
 	newItem.tags = tags.map(element => ({ tag: element }));
 
@@ -477,12 +505,13 @@ async function scrapeDoc(doc, ids, cite) {
 		|| label2Text(doc, '会议时间');
 	newItem.volume = tryMatch(pubInfo, /(\d*)\s*\(/, 1);
 	newItem.issue = tryMatch(pubInfo, /\(0?(\d+)\)/, 1);
+	newItem.ISBN = label2Text(doc, 'ISBN');
 
 	/* else fields */
 	newItem.number = label2Text(doc, '标准号');
 	newItem.place = label2Text(doc, '会议地点');
 	var fieldMap = {
-		title: 'div.doc h1',
+		title: 'div.doc h1, .h1-scholar',
 		pages: 'div.doc p.total-inform span:nth-child(2)',
 		university: 'div.doc h3:last-child'
 	};
@@ -490,11 +519,16 @@ async function scrapeDoc(doc, ids, cite) {
 		newItem[field] = text(doc, fieldMap[field]);
 	}
 	if (newItem.title.includes('\n')) {
+		Z.debug(`title: ${title.split('\n')}`);
 		newItem.extra += `titleTranslation: ${newItem.title.split('\n')[1]}`;
 		newItem.title = newItem.title.split('\n')[0];
 	}
+	newItem.title = newItem.title.replace(/MT翻译$/, '');
 	if (newItem.pages) {
 		newItem.pages = tryMatch(newItem.pages, /[\D0]*([\d,.+-]+)/, 1);
+	}
+	else {
+		newItem.pages = label2Text(doc, 'Pages')
 	}
 	fixItem(newItem, doc, ids, cite);
 	newItem.complete();
@@ -533,7 +567,7 @@ function fixItem(newItem, doc, ids, cite) {
 		default:
 			break;
 	}
-	newItem.abstractNote = newItem.abstractNote || text(doc, '.abstract-text');
+	newItem.abstractNote = newItem.abstractNote || text(doc, '.abstract-text') || label2Text(doc, 'Keywords');
 	newItem.abstractNote = newItem.abstractNote
 		.replace(/\s*[\r\n]\s*/g, '\n')
 		.replace(/&lt;.*?&gt;/g, '')
@@ -573,6 +607,44 @@ function fixItem(newItem, doc, ids, cite) {
 	else {
 		newItem.attachments = getAttachments(doc, keepPDF);
 	}
+}
+
+async function scrapeZhBook(doc, url, cite) {
+	var bookItem = new Z.Item(detectWeb(doc, url));
+	bookItem.title = text(doc, '#b-name, .art-title > h1');
+	bookItem.abstractNote = text(doc, '[name="contentDesc"], .desc-content').replace(/\n+/, '\n');
+	bookItem.creators = text(doc, '.xqy_b_mid li:nth-child(2), .art-title > .art-name')
+		.replace(/^责任者：/, '')
+		.replace(/\s+/, ' ')
+		.split(/\s/)
+		.map(element => ZU.cleanAuthor(element, 'author'));
+	bookItem.creators.forEach(element => element.fieldMode = 1);
+	var data = innerText(doc, '.bc_a, .desc-info')
+		.split('\n')
+		.map(element => {
+			return [tryMatch(element, /^(.+)：/, 1).replace(/\s/g, ''), tryMatch(element, /：(.*)/, 1)];
+		})
+		.filter(element => element);
+	data = {
+		innerData: data,
+		get: function (label) {
+			let keyVal = this.innerData.find(element => element[0] == label);
+			return keyVal
+				? keyVal[1]
+				: ''
+		}
+	};
+	Z.debug(data);
+	bookItem.edition = data.get('版次');
+	bookItem.pages = data.get('页数');
+	bookItem.publisher = text(doc, '.xqy_g') || data.get('出版社');
+	bookItem.date = data.get('出版时间')
+		.replace(/(\d{4})(0?\d)(\d*)/, '$1-$2-$3')
+		.replace(/-$/, '');
+	bookItem.language = 'zh-CN';
+	bookItem.ISBN = data.get('国际标准书号ISBN');
+	bookItem.libraryCatalog = data.get('所属分类');
+	bookItem.complete();
 }
 
 // add pdf or caj to attachments, default is pdf
@@ -1158,6 +1230,149 @@ var testCases = [
 				"tags": [
 					{
 						"tag": "粮油检验"
+					}
+				],
+				"notes": [],
+				"seeAlso": []
+			}
+		]
+	},
+	{
+		"type": "web",
+		"url": "https://thinker.cnki.net/bookstore/book/bookdetail?bookcode=9787111520269000&type=book",
+		"items": [
+			{
+				"itemType": "book",
+				"title": "近红外光谱技术在食品品质检测方法中的研究",
+				"creators": [
+					{
+						"firstName": "",
+						"lastName": "刘翠玲",
+						"creatorType": "author",
+						"fieldMode": 1
+					},
+					{
+						"firstName": "",
+						"lastName": "吴静珠",
+						"creatorType": "author",
+						"fieldMode": 1
+					},
+					{
+						"firstName": "",
+						"lastName": "孙晓荣",
+						"creatorType": "author",
+						"fieldMode": 1
+					}
+				],
+				"date": "2015-1-1",
+				"ISBN": "9787111520269",
+				"abstractNote": "本书从社会实际需求出发，根据多年的科研经验和成果，与多年从事测控信息处理、食品等相关专业的研究人员合作，融入许多解决实际问题的研究和实践成果，系统介绍了本课题组基于近红外光谱分析技术在果蔬类农药残留量的检测、食用植物油品质、小麦粉、淀粉的品质检测中的应用研究成",
+				"language": "zh-CN",
+				"publisher": "机械工业出版社",
+				"attachments": [],
+				"tags": [],
+				"notes": [],
+				"seeAlso": []
+			}
+		]
+	},
+	{
+		"type": "web",
+		"url": "https://thinker.cnki.net/BookStore/chapter/chapterdetail?bookcode=9787111520269000_174&type=chapter#div6",
+		"items": [
+			{
+				"itemType": "bookSection",
+				"title": "第8章 基于近红外光谱的淀粉品质检测方法研究",
+				"creators": [
+					{
+						"firstName": "",
+						"lastName": "刘翠玲",
+						"creatorType": "author",
+						"fieldMode": 1
+					},
+					{
+						"firstName": "",
+						"lastName": "吴静珠",
+						"creatorType": "author",
+						"fieldMode": 1
+					},
+					{
+						"firstName": "",
+						"lastName": "孙晓荣",
+						"creatorType": "author",
+						"fieldMode": 1
+					}
+				],
+				"date": "2015",
+				"abstractNote": "8.1||简介\n淀粉是以谷类、薯类、豆类为原料,不经过任何化学方法处理,也不改变淀粉内在的物理和化学特性加工而成的。它是日常生活中必不可少的作料之一,如煎炸烹炒,做汤勾芡都少不了要用到淀粉。随着食用淀粉在现代食品加工业中的广泛应用,淀粉生产和加工贸易取得了较大的发展。常见的产品主要有玉米淀粉、马铃薯淀粉、红薯淀粉和绿豆淀粉等,不同种类的淀粉价格差别较大,有的相差高达10倍以上,但是不同种类淀粉颗粒的宏观外观和普通物化指标差别不明显,无法辨认。由于缺乏相应的食用淀粉鉴别检验技术标准,国内淀粉市场严格监管很难执...",
+				"language": "zh-CN",
+				"publisher": "机械工业出版社",
+				"attachments": [],
+				"tags": [],
+				"notes": [],
+				"seeAlso": []
+			}
+		]
+	},
+	{
+		"type": "web",
+		"url": "https://kns.cnki.net/kcms2/article/abstract?v=xNq_RSSxtttIrJeXZkUKrgYm5VzJ-cJ9ZNcedU6pGWexISAAO8qiV7mEZDjQI7trZCGfp4wUbHAL3uTnBZiOYg3IMJ-VRP_mBkw0Ge0CdJH7CJoz7mNCVnlE_-UT40nuC82rJvoNfD-xXPwyvP2F6-c6vh1GbQHlgmf6RFLcm9M=&uniplatform=NZKPT&language=CHS",
+		"items": [
+			{
+				"itemType": "book",
+				"title": "An Optimal Rice Policy for Sierra Leone : Balancing Consumer and Producer Welfare",
+				"creators": [
+					{
+						"firstName": "Graham Errol",
+						"lastName": "George",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Tchale",
+						"lastName": "Hardwick",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Ndione",
+						"lastName": "Mamadou",
+						"creatorType": "author"
+					}
+				],
+				"abstractNote": "CONSUMER SURPLUS; PRODUCER SURPLUS; WELFARE; SUPPLY RESPONSE; RICE PRICE; DEMAND ELASTICITY; SUPPLY ELASTICITY; FOOD SECURITY;",
+				"libraryCatalog": "CNKI",
+				"shortTitle": "An Optimal Rice Policy for Sierra Leone",
+				"url": "https://kns.cnki.net/kcms2/article/abstract?v=xNq_RSSxtttIrJeXZkUKrgYm5VzJ-cJ9ZNcedU6pGWexISAAO8qiV7mEZDjQI7trZCGfp4wUbHAL3uTnBZiOYg3IMJ-VRP_mBkw0Ge0CdJH7CJoz7mNCVnlE_-UT40nuC82rJvoNfD-xXPwyvP2F6-c6vh1GbQHlgmf6RFLcm9M=&uniplatform=NZKPT&language=CHS",
+				"attachments": [
+					{
+						"title": "Full Text CAJ",
+						"mimeType": "application/caj",
+						"url": ""
+					}
+				],
+				"tags": [
+					{
+						"tag": "CONSUMER SURPLUS"
+					},
+					{
+						"tag": "DEMAND ELASTICITY"
+					},
+					{
+						"tag": "FOOD SECURITY"
+					},
+					{
+						"tag": "PRODUCER SURPLUS"
+					},
+					{
+						"tag": "RICE PRICE"
+					},
+					{
+						"tag": "SUPPLY ELASTICITY"
+					},
+					{
+						"tag": "SUPPLY RESPONSE"
+					},
+					{
+						"tag": "WELFARE"
 					}
 				],
 				"notes": [],
