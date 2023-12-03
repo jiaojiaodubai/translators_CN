@@ -9,7 +9,7 @@
 	"inRepository": true,
 	"translatorType": 4,
 	"browserSupport": "gcsibv",
-	"lastUpdated": "2023-12-02 20:32:38"
+	"lastUpdated": "2023-12-03 04:25:55"
 }
 
 /*
@@ -396,7 +396,6 @@ async function scrape(doc, url = doc.location.href, cite) {
 			// breakline
 			.replace(/<br>|\r/g, '\n')
 			// split keywords
-			.replace(/^%@ /, '%G')
 			.replace(/^%K .*/gm, function (match) {
 				return match.replace(/[,;，；]\s?/g, '\n%K ');
 			})
@@ -406,6 +405,8 @@ async function scrape(doc, url = doc.location.href, cite) {
 			.replace(/^%Y .*/gm, function (match) {
 				return match.replace(/[,;，；]\s?/g, '\n%Y ');
 			})
+			.replace(/^%R /m, '%U ')
+			.replace(/^%9 /m, '%R ')
 			.replace(/^%V 0?/m, '%V ')
 			.replace(/^%N 0?/m, '%N ')
 			// \t in abstract
@@ -417,7 +418,6 @@ async function scrape(doc, url = doc.location.href, cite) {
 		translator.setTranslator('881f60f2-0802-411a-9228-ce5f47b64c7d');
 		translator.setString(referText);
 		translator.setHandler('itemDone', (_obj, newItem) => {
-			newItem.type = tryMatch(referText, /^%9 (.*)/m);
 			fixItem(newItem, doc, ids, cite);
 			newItem.complete();
 		});
