@@ -9,7 +9,7 @@
 	"inRepository": true,
 	"translatorType": 4,
 	"browserSupport": "gcsibv",
-	"lastUpdated": "2023-12-03 19:12:44"
+	"lastUpdated": "2023-12-03 19:44:12"
 }
 
 /*
@@ -170,8 +170,8 @@ function getTypeFromDBName(ids) {
 		// 境外专利 patent en
 		SOPD: 'patent',
 		SCOD: 'patent',
-		// 年鉴 almanac zh，原先记录可能有误
-		// CYFD: 'journalArticle',
+		// 年鉴 almanac zh，无对应条目类型，以期刊记录
+		CYFD: 'journalArticle',
 		// 国内会议 conference zh
 		CPFD: 'conferencePaper',
 		// （国外）会议 en
@@ -214,6 +214,11 @@ function getSearchResults(doc, url, checkOnly) {
 		Z.debug('Article list in journal navigation page');
 		rows = doc.querySelectorAll('dl#CataLogContent dd');
 		aSlector = 'span.name > a';
+	}
+	else if (/\/yearbooks\/.+\/detail/i.test(url)) {
+		Z.debug('Article list in yearbook navigation page');
+		rows = doc.querySelectorAll('#contentPanel .itemNav');
+		aSlector = 'a';
 	}
 	else if (/search\.cnki\.com/i.test(url)) {
 		Z.debug('Article list in CNKI space');
@@ -459,12 +464,10 @@ async function parseRefer(referText, doc, ids, itemKey) {
 	translator.setTranslator('881f60f2-0802-411a-9228-ce5f47b64c7d');
 	translator.setString(referText);
 	translator.setHandler('itemDone', (_obj, newItem) => {
-		switch (newItem.itemType) {
-			case 'statute':
-				newItem.itemType = 'standard';
-				newItem.number = newItem.volume;
-				delete newItem.volume;
-				break;
+		if (newItem.itemType == 'statute' && newItem.type != '年鉴') {
+			newItem.itemType = 'standard';
+			newItem.number = newItem.volume;
+			delete newItem.volume;
 		}
 		newItem = Object.assign(newItem, fixItem(newItem, doc, ids, itemKey));
 		newItem.complete();
@@ -487,7 +490,8 @@ async function scrapeDoc(doc, ids, itemKey) {
 			.map(element => element.textContent.trim().replace(/[0-9,]/g, '')),
 		Array.from(doc.querySelectorAll('#authorpart a'))
 			.map(element => element.textContent.trim().replace(/[0-9,]/g, '')),
-		label2Text(doc, '起草单位').split(/[,;，；]\s*/)
+		label2Text(doc, '起草单位').split(/[,;，；]\s*/),
+		label2Text(doc, '主编单位').split(/[,;，；]\s*/)
 	].find(element => element.length);
 	newItem.creators = creators.map(element => ZU.cleanAuthor(element, 'author'));
 
