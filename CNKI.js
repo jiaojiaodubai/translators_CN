@@ -464,7 +464,10 @@ async function parseRefer(referText, doc, ids, itemKey) {
 	translator.setTranslator('881f60f2-0802-411a-9228-ce5f47b64c7d');
 	translator.setString(referText);
 	translator.setHandler('itemDone', (_obj, newItem) => {
-		if (newItem.itemType == 'statute' && newItem.type != '年鉴') {
+		if (newItem.type == '年鉴') {
+			newItem.itemType = 'journalArticle';
+		}
+		else if (newItem.itemType == 'statute') {
 			newItem.itemType = 'standard';
 			newItem.number = newItem.volume;
 			delete newItem.volume;
