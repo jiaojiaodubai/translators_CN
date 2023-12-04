@@ -9,7 +9,7 @@
 	"inRepository": true,
 	"translatorType": 4,
 	"browserSupport": "gcsibv",
-	"lastUpdated": "2023-12-03 19:44:12"
+	"lastUpdated": "2023-12-04 07:23:58"
 }
 
 /*
@@ -432,7 +432,7 @@ async function scrapeWithGetExport(doc, ids, itemKey) {
 	Z.debug('get respond from API GetExport:');
 	Z.debug(referText);
 
-	if (!referText.body) {
+	if (!referText.data) {
 		throw new ReferenceError('Failed to retrieve data from API: GetExport');
 	}
 	referText = referText.data[2].value[0];
@@ -441,7 +441,7 @@ async function scrapeWithGetExport(doc, ids, itemKey) {
 
 async function parseRefer(referText, doc, ids, itemKey) {
 	if (!/%T /.test(referText)) throw TypeError;
-	Z.debug("Get referText from API successfuly!");
+	Z.debug('Get referText from API successfuly!');
 	referText = referText
 		// breakline
 		.replace(/<br>\s*|\r/g, '\n')
@@ -498,16 +498,6 @@ async function scrapeDoc(doc, ids, itemKey) {
 	].find(element => element.length);
 	newItem.creators = creators.map(element => ZU.cleanAuthor(element, 'author'));
 
-	/* tags */
-	let tags = Array.from(doc.querySelectorAll('div.doc p.keywords a')).map(element => ZU.trimInternal(element.innerText).replace(/[,;，；]$/, '')
-	);
-	// Keywords sometimes appear as a whole paragraph
-	if (!tags.length) {
-		tags = text(doc, 'div.doc p.keywords') || label2Text(doc, 'Keywords');
-		tags = tags.split(/[,;，；n]\s*/g);
-	}
-	newItem.tags = tags.map(element => ({ tag: element }));
-
 	/* publication information */
 	let pubInfo = innerText(doc, 'div.top-tip span');
 	newItem.publicationTitle = tryMatch(pubInfo, /(.*?)\./, 1);
@@ -536,12 +526,7 @@ async function scrapeDoc(doc, ids, itemKey) {
 		newItem.title = newItem.title.split('\n')[0];
 	}
 	newItem.title = newItem.title.replace(/MT翻译$/, '');
-	if (newItem.pages) {
-		newItem.pages = tryMatch(newItem.pages, /[\D0]*([\d,.+-]+)/, 1);
-	}
-	else {
-		newItem.pages = label2Text(doc, 'Pages');
-	}
+	newItem.pages = newItem.pages || label2Text(doc, 'Pages');
 	fixItem(newItem, doc, ids, itemKey);
 	newItem.complete();
 }
@@ -604,6 +589,18 @@ function fixItem(newItem, doc, ids, itemKey) {
 		newItem.itemType = 'preprint';
 		newItem.date = tryMatch(innerText(doc, '.head-time'), /：([\d-]*)/, 1);
 	}
+
+	newItem.pages = newItem.pages.replace(/0*([1-9]\d*)/g, '$1')
+
+	/* tags */
+	let tags = Array.from(doc.querySelectorAll('div.doc p.keywords a')).map(element => ZU.trimInternal(element.innerText).replace(/[,;，；]$/, '')
+	);
+	// Keywords sometimes appear as a whole paragraph
+	if (!tags.length) {
+		tags = text(doc, 'div.doc p.keywords') || label2Text(doc, 'Keywords');
+		tags = tags.split(/[,;，；n]\s*/g);
+	}
+	newItem.tags = tags.map(element => ({ tag: element }));
 
 	/* add PDF/CAJ attachment */
 	// If you want CAJ instead of PDF, set keepPDF = false
