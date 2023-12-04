@@ -9,13 +9,13 @@
 	"inRepository": true,
 	"translatorType": 4,
 	"browserSupport": "gcsibv",
-	"lastUpdated": "2022-06-29 01:57:00"
+	"lastUpdated": "2023-12-04 14:06:24"
 }
 
 /*
 	***** BEGIN LICENSE BLOCK *****
 
-	Copyright © 2021 with
+	Copyright © 2021 with9
 	
 	This file is part of Zotero.
 
@@ -36,68 +36,42 @@
 */
 
 function detectWeb(doc) {
-	let a = doc.getElementById("education");
-	if (a !== null) {
-		if (a.textContent !== null) {
-			return "thesis";
-		}
+	if (text(doc, '#education')) {
+		return "thesis";
 	}
 	return false;
 }
 
-function doWeb(doc, url) {
-	const pageType = detectWeb(doc);
-
-	switch (pageType) {
-		case "thesis":
-			scrape(doc, url, pageType);
-			break;
-
-		default:
-			break;
-	}
+async function doWeb(doc, url) {
+	await scrape(doc, url);
 }
 
-function scrape(doc, url, itemType) {
-	if (itemType === "thesis") {
-		const newItem = new Zotero.Item(itemType);
-		const title = doc.getElementById("title_cn").textContent;
-		let teacher = "导师:暂无";
-		let author = "作者:暂无";
-		if (doc.getElementById("teacher_name").childNodes[1] !== undefined) {
-			teacher = doc.getElementById("teacher_name").childNodes[1].textContent;
-		}
-		if (doc.getElementById("author_name").childNodes[1] !== undefined) {
-			author = doc.getElementById("author_name").childNodes[1].textContent;
-		}
-		if (doc.getElementById("more_abstract_cn").textContent === "【显示更多内容】") {
-			doc.getElementById("more_abstract_cn").click(); //模拟点击显示更多摘要
-		}
-		const abstract = doc.getElementById("abstract_cn").textContent;
-		const iso = doc.getElementById("education_grant_time").textContent; //毕业时间作为论文发表时间
-		const sid = doc.getElementById("fullText").children[0].href.match("'(.*?)'")[0]; //获取学生学号
-		const education = doc.getElementById("education").textContent;
-		const institute = doc.getElementById("training_institution").textContent;
-		newItem.url = url;
-		newItem.title = title;
-		newItem.creators = [
-			{
-				lastName: author,
-				creatorType: "author",
-			},
-			{
-				lastName: teacher,
-				creatorType: "contributor",
-			},
-		];
-		newItem.abstractNote = abstract;
-		newItem.sid = sid; //学生的学号
-		newItem.date = ZU.strToISO(iso);
-		newItem.thesisType = education;
-		newItem.university = institute;
-		newItem.libraryCatalog = "中国科学院文献情报中心";
-		newItem.complete();
+async function scrape(doc, url) {
+	var newItem = new Z.Item('thesis');
+	newItem.title = text(doc, '#title_cn');
+	if (text(doc, '#more_abstract_cn') === "【显示更多内容】") {
+		//模拟点击显示更多摘要
+		await doc.getElementById('more_abstract_cn').click();
 	}
+	newItem.abstractNote = abstract = text(doc, '#abstract_cn');
+	newItem.creators.push(ZU.cleanAuthor(text(doc, '#author_name > a'), 'author'));
+	newItem.creators.push(ZU.cleanAuthor(text(doc, '#teacher_name > a'), 'contributor'));
+	newItem.creators.forEach(element => {
+		if (/[\u4e00-\u9fa5]/.test(element)) {
+			element.fieldMode = 1;
+		}
+	})
+	newItem.tags.push(text(doc, '#keyword_cn').split(/[,;，；]/g))
+	//学生的学号
+	newItem.callNumber = attr(doc, '#fullText > a', 'href').match(/'([\dA-Z]*)',/)[1];
+	//毕业时间作为论文发表时间
+	newItem.date = ZU.strToISO(text(doc, '#education_grant_time'));
+	newItem.thesisType = text(doc, '#education');
+	newItem.university = text(doc, '#training_institution');
+	newItem.libraryCatalog = "中国科学院文献情报中心";
+	newItem.url = url;
+	newItem.extra = `titleTranslation: ${text(doc, '#title_other')}`;
+	newItem.complete();
 }
 
 /** BEGIN TEST CASES **/

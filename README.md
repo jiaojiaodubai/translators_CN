@@ -32,7 +32,7 @@
 - [x] Bilibili
 - [x] Dangdang
 - [ ] Douban
-- [ ] dpaper
+- [x] dpaper
 - [ ] GFSOSO
 - [ ] Jd
 - [ ] translators_CN\National Public Service Platform for Standards Information
