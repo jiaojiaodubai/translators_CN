@@ -3,7 +3,7 @@
 ## 未通过ESLint
 
 - [x] CNKI
-- [ ] Dangdang
+- [x] Dangdang
 - [ ] Duxiu
 - [ ] GFSOSO
 - [ ] National Public Service Platform for Standards Information - China
@@ -30,7 +30,7 @@
 
 - [x] Baidu Scholar
 - [x] Bilibili
-- [ ] Dangdang
+- [x] Dangdang
 - [ ] Douban
 - [ ] dpaper
 - [ ] GFSOSO
