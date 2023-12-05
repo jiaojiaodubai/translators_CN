@@ -9,7 +9,7 @@
 	"inRepository": true,
 	"translatorType": 4,
 	"browserSupport": "gcsibv",
-	"lastUpdated": "2023-12-05 10:54:41"
+	"lastUpdated": "2023-12-05 17:25:11"
 }
 
 /*
@@ -30,6 +30,7 @@
 	***** END LICENSE BLOCK *****
 */
 
+/* A series of identifiers for item, used to request data from APIs. */
 var ids = {
 	dbname: '',
 	filename: '',
@@ -40,30 +41,55 @@ var ids = {
 // var debugMode = false;
 
 function detectWeb(doc, url) {
-	Z.debug("----------------CNKI 20231202------------------");
-	ids = getIDFromPage(doc, url);
+	Z.debug("----------------CNKI 20231205------------------");
+	let ids = getIDFromPage(doc, url);
 	const multiplePattern = [
-		/kns\/brief\/(default_)?result\.aspx/i,
-		// Article list in journal navigation page
-		/\/KNavi\//i,
-		/kns8?s?\/defaultresult\/index/i,
-		// search page
-		/KNS8?s?\/AdvSearch\?/i,
-		// search page
+
+		/*
+		search
+		https://kns.cnki.net/kns/search?dbcode=SCDB
+		https://kns.cnki.net/kns8s/
+		 */
 		/kns8?s?\/search\?/i,
-		// search page
-		/kns8\/#\/\?/i,
-		// search page
-		/search\.cnki\.com/i
+
+		/*
+		advanced search
+		old version: https://kns.cnki.net/kns/advsearch?dbcode=SCDB
+		new version: https://kns.cnki.net/kns8s/AdvSearch?classid=WD0FTY92
+		 */
+		/KNS8?s?\/AdvSearch\?/i,
+
+		/*
+		article/yearbook list in journal navigation page or CNKI thingker search page
+		https://navi.cnki.net/knavi/journals/ZGSK/detail?uniplatform=NZKPT
+		 */
+		/\/KNavi\//i,
+
+		/* https://kns.cnki.net/kns8s/defaultresult/index?korder=&kw= */
+		/kns8?s?\/defaultresult\/index/i,
+
+		/*
+		search page in CNKI space
+		https://search.cnki.com.cn/Search/Result?theme=%u6C34%u7A3B
+		 */
+		/search\.cnki\.com/i,
+		// seems outdated
+		/kns\/brief\/(default_)?result\.aspx/i,
+		// seems outdated
+		/kns8\/#\/\?/i
 	];
-	let searchResult = doc.querySelector('#ModuleSearchResult, #contentPanel, .main_sh');
+	// #ModuleSearchResult for commom CNKI,
+	// #contentPanel for journal/yearbook navigation,
+	// .main_sh for oldversion,
+	// .resault-cont for CNKI space
+	let searchResult = doc.querySelector('#ModuleSearchResult, #contentPanel, .main_sh, .resault-cont');
 	if (searchResult) {
 		Z.monitorDOMChanges(searchResult, { childList: true, subtree: true });
 	}
 	if (ids) {
 		// Z.debug('detecte id:');
 		// Z.debug(ids)
-		return getTypeFromDBName(ids);
+		return ids2itemType(ids);
 	}
 	else if (url.includes('book/bookdetail')) {
 		// 知网心可图书馆，CNKI thingker
@@ -118,7 +144,7 @@ function getIDFromHeader(doc, url) {
 }
 
 function getIDFromSpaceURL(url) {
-	// https://www.cnki.com.cn/Article/CJFDTOTAL-SYYY202311015.htm
+	// url example: https://www.cnki.com.cn/Article/CJFDTOTAL-SYYY202311015.htm
 	ids = {
 		filename: /-([A-Z\d]+)\./,
 		dbcode: /\/([A-Z]{4})TOTAL-/
@@ -133,8 +159,8 @@ function getIDFromSpaceURL(url) {
 	return ids;
 }
 
-function getTypeFromDBName(ids) {
-	const dbType = {
+function ids2itemType(ids) {
+	const dbcode = {
 		// zh database code: CJFQ,CDFD,CMFD,CPFD,IPFD,CPVD,CCND,WBFD,SCSF,SCHF,SCSD,SNAD,CCJD,CJFN,CCVD
 		// en database code: WWJD,IPFD,WWPD,WWBD,SOSD
 		// 学术辑刊 zh
@@ -200,35 +226,40 @@ function getTypeFromDBName(ids) {
 		// SNAD
 
 	};
-	let db = ids.dbname.substr(0, 4).toUpperCase();
-	return dbType[db] || dbType[ids.dbcode];
+	let optionalDbcode = ids.dbname.substr(0, 4).toUpperCase();
+	return dbcode[optionalDbcode] || dbcode[ids.dbcode];
 }
 
 function getSearchResults(doc, url, checkOnly) {
 	var items = {};
+	// uncomment the next line to confirm that the translator has been successfully updated when debugging in the browser
 	// items.debug = 'debug with CNKI.js v 2023120518001';
 	var found = false;
 	var rows = [];
 	var aSlector = '';
-	// for journal detail page
+
+	/* journal navigation */
 	if (/\/journals\/.+\/detail/i.test(url)) {
 		Z.debug('Article list in journal navigation page');
 		rows = doc.querySelectorAll('dl#CataLogContent dd');
 		aSlector = 'span.name > a';
 	}
+
+	/* yearbook navigation */
 	else if (/\/yearbooks\/.+\/detail/i.test(url)) {
 		Z.debug('Article list in yearbook navigation page');
 		rows = doc.querySelectorAll('#contentPanel .itemNav');
 		aSlector = 'a';
 	}
+
+	/* CNKI space */
 	else if (/search\.cnki\.com/i.test(url)) {
 		Z.debug('Article list in CNKI space');
 		rows = doc.querySelectorAll('div#article_result div.list-item');
 		aSlector = 'p > a';
 	}
-	// for search result page
 	else {
-		// table.list_table tbody tr => https://chkdx.cnki.net/
+		// 'table.list_table tbody tr' design for https://chkdx.cnki.net, the hospital version of CNKI
 		rows = doc.querySelectorAll('table.result-table-list tbody tr,table.list_table tbody tr');
 		aSlector = 'td.name > a,td.seq+td > a';
 	}
@@ -241,9 +272,14 @@ function getSearchResults(doc, url, checkOnly) {
 		if (!href || !title) continue;
 		if (checkOnly) return true;
 		found = true;
+		// Use the key to transmit some useful information.
 		items[JSON.stringify({
 			url: href,
+			// reference count
 			cite: text(row, 'td.quote'),
+			// Another identifier for requesting data from the API.
+			// In Chinese Mainland, it is usually dynamic,
+			// while overseas is composed of fixed ids.filename.
 			cookieName: attr(row, '[name="CookieName"]', 'value'),
 			downloadlink: attr(row, 'td.operat > a')
 		})] = `【${i + 1}】${title}`;
@@ -253,7 +289,14 @@ function getSearchResults(doc, url, checkOnly) {
 }
 
 async function doWeb(doc, url) {
+	// "NZKPT" is marked as Chinese Mainland.
+	// Because CNKI has different APIs inside and outside Chinese Mainland, it needs to be differentiated.
 	const inMainland = doc.querySelector('a[href*="NZKPT"]');
+
+	/*
+	For multiple items, prioritize trying to crawl them one by one, as documents always provide additional information;
+	If it is not possible to obtain the document, consider using bulk export API.
+	 */
 	if (detectWeb(doc, url) == "multiple") {
 		let items = await Z.selectItems(getSearchResults(doc, url, false));
 		if (!items) return;
@@ -273,8 +316,14 @@ async function doWeb(doc, url) {
 						.map(element => JSON.parse(element))
 						.filter(element => element.cookieName);
 					await scrapeWithShowExport(itemKeys, inMainland);
+					// Bulk export API can request all data at once.
 					break;
 				}
+
+				/*
+				Some older versions of CNKI and industry customized versions may not support retrieving CookieName from search pages.
+				In these cases, CAPTCHA issue should be handled by the user.
+				 */
 				else {
 					var debugItem = new Z.Item('webpage');
 					debugItem.title = `❌验证码错误！（CAPTCHA Erro!）❌`;
@@ -298,6 +347,8 @@ async function doWeb(doc, url) {
 	else {
 		await scrape(
 			doc,
+			// The itemKey can only be obtained from the search page,
+			// and it is set to empty here to meet compatibility requirements.
 			url,
 			{ url: '', cite: '', cookieName: '', downloadlink: '' },
 			inMainland
@@ -320,16 +371,17 @@ async function scrape(doc, url = doc.location.href, itemKey, inMainland) {
 		await scrapeWithGetExport(doc, ids, itemKey, inMainland);
 	}
 	catch (error) {
-		// Value return from API is invalid, scrape metadata from webpage
+		// Value return from API is invalid, scrape metadata from webpage.
 		if (!isSpace) await scrapeDoc(doc, ids, itemKey);
 	}
 }
 
 async function scrapeWithGetExport(doc, ids, itemKey, inMainland) {
 	Z.debug('use API GetExport');
-	// Due to CNKI's anti crawler feature, fixed text is used during debugging to avoid frequent requests
+	// To avoid triggering anti crawlers due to frequent requests,
+	// uncomment the expression below during debugging to test functionality unrelated to requests.
 	/*
- 	referText = {
+	  referText = {
 		code: 1,
 		msg: "返回成功",
 		data: [
@@ -355,16 +407,19 @@ async function scrapeWithGetExport(doc, ids, itemKey, inMainland) {
 		traceid: "a7af1c2425ec49b5973f756b194256c6.191.17014617381526837"
 	};
 	 */
-	
-	// During debugging, manually throw errors to guide the program to run inward
+
+	// During debugging, may manually throw errors to guide the program to run inward
 	// referText = false;
 	// throw ReferenceError;
 	let postUrl = inMainland
 		? 'https://kns.cnki.net/dm/API/GetExport?uniplatform=NZKPT'
 		: ids.url.includes('//chn.')
+			// https://chn.oversea.cnki.net is an oversea CNKI site with Chinese language.
 			? 'https://chn.oversea.cnki.net/kns8/manage/APIGetExport'
 			: 'https://oversea.cnki.net/kns8/manage/APIGetExport';
 	let postData = `filename=${ids.dbname}!${ids.filename}!1!0`
+		// Although there are two data formats that are redundant,
+		// this can make the request more "ordinary" to the server.
 		+ '&displaymode=GBTREFER%2Celearning%2CEndNote';
 	let referText = await requestJSON(
 		postUrl,
@@ -372,6 +427,7 @@ async function scrapeWithGetExport(doc, ids, itemKey, inMainland) {
 			method: 'POST',
 			body: postData,
 			headers: {
+				// The server uses the refer parameter to verify whether the request it receives comes from its own client web page.
 				Referer: ids.url
 			}
 		}
@@ -389,7 +445,8 @@ async function scrapeWithGetExport(doc, ids, itemKey, inMainland) {
 async function scrapeWithShowExport(itemKeys, inMainland) {
 	var fileNames = itemKeys.map(element => element.cookieName);
 	Z.debug('use API showExport');
-	// Due to CNKI's anti crawler feature, fixed text is used during debugging to avoid frequent requests
+	// To avoid triggering anti crawlers due to frequent requests,
+	// uncomment the expression below during debugging to test functionality unrelated to requests.
 
 	/* let referText = {
 		status: 200,
@@ -451,6 +508,8 @@ async function scrapeWithShowExport(itemKeys, inMainland) {
 		await parseRefer(
 			referText,
 			document.createElement('div'),
+			// This function is designed to be used when the item documents are unavailable,
+			// so passing an empty Element to meet compatibility requirements.
 			{
 				dbname: '',
 				filename: '',
@@ -462,19 +521,22 @@ async function scrapeWithShowExport(itemKeys, inMainland) {
 }
 
 async function parseRefer(referText, doc, ids, itemKey) {
+	// Item without title is invalid.
 	if (!/%T /.test(referText)) throw TypeError;
 	Z.debug('Get referText from API successfuly!');
 	referText = referText
 		// breakline
 		.replace(/<br>\s*|\r/g, '\n')
-		// split keywords
+		// Sometimes, authors, contributors, or keywords may be mistakenly placed in the same tag.
 		.replace(/^%([KAYI]) .*/gm, function (match) {
 			let tag = match[1];
 			return match.replace(/[,;，；]\s?/g, `\n%${tag} `);
 		})
+		// Sometimes, authors, contributors, or keywords have their tags, but do not wrap before the tags.
 		.replace(/(%[KAYI]) /gm, '\n$1 ')
 		.replace(/^%R /m, '%U ')
-		// 9见于学位论文，表示博士学位或硕士学位；~见于标准，表示国家标准或行业标准
+		// Custom tag "9" corresponds to the degree of the graduation thesis,
+		//and tag "~" corresponds standard type (national standard or industry standard).
 		.replace(/^%[9~] /m, '%R ')
 		.replace(/^%V 0?/m, '%V ')
 		.replace(/^%N 0?/m, '%N ')
@@ -487,39 +549,53 @@ async function parseRefer(referText, doc, ids, itemKey) {
 	translator.setTranslator('881f60f2-0802-411a-9228-ce5f47b64c7d');
 	translator.setString(referText);
 	translator.setHandler('itemDone', (_obj, newItem) => {
+		// Record the yearbook as a journal article.
 		if (newItem.type == '年鉴') {
 			newItem.itemType = 'journalArticle';
-			newItem.ISSN = tryMatch(referText, /^%@ (.*)/, 1);
 		}
 		else if (newItem.itemType == 'statute') {
 			newItem.itemType = 'standard';
 			newItem.number = newItem.volume;
 			delete newItem.volume;
 		}
+		newItem.ISSN = tryMatch(referText, /^%@ (.*)/, 1);
 		newItem = Object.assign(newItem, fixItem(newItem, doc, ids, itemKey));
 		newItem.complete();
 	});
 	await translator.translate();
 }
 
+/* TODO: Compatible with English labels in English version of CNKI. */
 async function scrapeDoc(doc, ids, itemKey) {
 	Z.debug('scraping from document...');
-	var newItem = new Zotero.Item(getTypeFromDBName(ids));
+	var newItem = new Zotero.Item(ids2itemType(ids));
+
+	/* title */
+	newItem.title = getPureText(doc.querySelector('div.doc h1, .h1-scholar'));
+	if (newItem.title.includes('\n')) {
+		newItem.extra += `titleTranslation: ${newItem.title.split('\n')[1]}`;
+		newItem.title = newItem.title.split('\n')[0];
+	}
+	newItem.title = newItem.title.replace(/MT翻译$/, '');
 
 	/* Click to get a full abstract in a single article page */
-	let moreClick = doc.querySelector('span a#ChDivSummaryMore');
-	if (moreClick) moreClick.click();
+	let detailBtn = doc.querySelector('span a#ChDivSummaryMore');
+	if (detailBtn) detailBtn.click();
+	// 'div.abstract-text' is usually found on old versions of CNKI or oversea CNKI.
 	newItem.abstractNote = text(doc, 'span#ChDivSummary, div.abstract-text');
 
 	/* creators */
 	let creators = [
 		Array.from(doc.querySelectorAll('#authorpart span'))
+			// Clear footnote labels for author names
 			.map(element => element.textContent.trim().replace(/[0-9,]/g, '')),
 		Array.from(doc.querySelectorAll('#authorpart a'))
 			.map(element => element.textContent.trim().replace(/[0-9,]/g, '')),
-		// 海外版
+		// For oversea CNKI.
 		text(doc, '.brief h3').split(/[,.，；\d]\s*/).filter(element => element),
+		// For standard.
 		label2Text(doc, '起草单位').split(/[,;，；]\s*/),
+		// For yearbook.
 		label2Text(doc, '主编单位').split(/[,;，；]\s*/)
 	].find(element => element.length);
 	newItem.creators = creators.map(element => ZU.cleanAuthor(element, 'author'));
@@ -538,17 +614,12 @@ async function scrapeDoc(doc, ids, itemKey) {
 	/* else fields */
 	newItem.number = label2Text(doc, '标准号');
 	newItem.place = label2Text(doc, '会议地点');
-	newItem.title = getPureText(doc.querySelector('div.doc h1, .h1-scholar'));
-	if (newItem.title.includes('\n')) {
-		newItem.extra += `titleTranslation: ${newItem.title.split('\n')[1]}`;
-		newItem.title = newItem.title.split('\n')[0];
-	}
-	newItem.title = newItem.title.replace(/MT翻译$/, '');
 	newItem.pages = tryMatch(text(doc, 'div.doc p.total-inform span:nth-child(2)'), /[\d-,+]*/) || label2Text(doc, 'Pages');
 	fixItem(newItem, doc, ids, itemKey);
 	newItem.complete();
 }
 
+/* TODO: Compatible with English labels in English version of CNKI. */
 function fixItem(newItem, doc, ids, itemKey) {
 	switch (newItem.itemType) {
 		case 'journalArticle':
@@ -562,7 +633,6 @@ function fixItem(newItem, doc, ids, itemKey) {
 			newItem.creators[1].creatorType = 'Author';
 			break;
 		case 'patent':
-			// TODO: Add translation for the English version of the page
 			newItem.place = label2Text(doc, '地址');
 			newItem.country = label2Text(doc, '国省代码');
 			newItem.patentNumber = label2Text(doc, '申请(专利)号');
@@ -640,6 +710,7 @@ function fixItem(newItem, doc, ids, itemKey) {
 	return newItem;
 }
 
+/* A dedicated scrape scheme for Chinese books in CNKI thingker. */
 async function scrapeZhBook(doc, url, itemKey) {
 	var bookItem = new Z.Item(detectWeb(doc, url));
 	bookItem.title = text(doc, '#b-name, .art-title > h1');
@@ -702,6 +773,8 @@ function getAttachments(doc, keepPDF) {
 	return attachments;
 }
 
+/* Utility functions */
+
 function label2Text(doc, label) {
 	if (Array.isArray(label)) {
 		let result = label
@@ -728,13 +801,15 @@ function tryMatch(string, pattern, index = 0) {
 }
 
 function getPureText(element) {
-	// 执行深拷贝以免影响页面元素
+	// Deep copy to avoid affecting the original page.
 	let elementCopy = element.cloneNode(true);
 	while (elementCopy.lastElementChild) {
 		elementCopy.removeChild(elementCopy.lastElementChild);
 	}
 	return elementCopy.innerText;
-}/** BEGIN TEST CASES **/
+}
+
+/** BEGIN TEST CASES **/
 var testCases = [
 	{
 		"type": "web",
