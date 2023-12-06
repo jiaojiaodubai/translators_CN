@@ -9,7 +9,7 @@
 	"inRepository": true,
 	"translatorType": 4,
 	"browserSupport": "gcsibv",
-	"lastUpdated": "2023-12-06 09:32:45"
+	"lastUpdated": "2023-12-06 13:16:24"
 }
 
 /*
@@ -112,6 +112,9 @@ function detectWeb(doc, url) {
 
 function getIDFromPage(doc, url) {
 	let ids = getIDFromURL(url) || getIDFromHeader(doc, url);
+	if (/^DKCT/.test(ids.dbname)) {
+		ids.dbcode = ids.dbname.slice(6, 10);
+	}
 	return ids;
 }
 
@@ -140,10 +143,9 @@ function getIDFromHeader(doc, url) {
 	};
 	for (const key in ids) {
 		let value = attr(doc, ids[key], 'value');
-		Z.debug(value);
-		// if (!value) return false;
 		ids[key] = value;
 	}
+	if (!ids.dbname || !ids.filename) return false;
 	ids.dbcode = ids.dbcode || ids.dbname.substr(0, 4).toUpperCase();
 	ids.url = url;
 	return ids;
@@ -230,8 +232,6 @@ function ids2itemType(ids) {
 		SOSD: 'standard',
 		// 成果 achievements
 		// SNAD
-		DKCT: 'journalArticle'
-
 	};
 	let optionalDbcode = ids.dbname.substr(0, 4).toUpperCase();
 	return dbcode[ids.dbcode] || dbcode[optionalDbcode];
@@ -364,10 +364,8 @@ async function doWeb(doc, url) {
 		await scrapeDoc(doc, getIDFromPage(doc, url));
 	}
 	else if (url.includes('inds.cnki')) {
-		let ids = getIDFromPage(doc, url);
-		ids.dbcode = ids.dbname.slice(6, 10);
 		await scrapeDoc(doc,
-			ids,
+			getIDFromPage(doc, url),
 			{ url: '', cite: '', cookieName: '', downloadlink: '' }
 		);
 	}
@@ -597,6 +595,8 @@ async function parseRefer(referText, doc, ids, itemKey) {
 async function scrapeDoc(doc, ids, itemKey) {
 	Z.debug('scraping from document...');
 	var newItem = new Zotero.Item(ids2itemType(ids));
+	let labels = new Labels(doc, 'div.doc span.rowtit, #content p, .summary li');
+	Z.debug(labels.innerData.map(element => element.innerText));
 
 	/* title */
 	newItem.title = getPureText(doc.querySelector('div.doc h1, .h1-scholar, #chTitle'));
@@ -613,7 +613,7 @@ async function scrapeDoc(doc, ids, itemKey) {
 	newItem.abstractNote = text(doc, 'span#ChDivSummary, div.abstract-text');
 
 	/* creators */
-	let creators = [
+	var creators = [
 		// Do not use comma separated collectors, as there may be duplicate code that is difficult to filter
 		Array.from(doc.querySelectorAll('#authorpart span'))
 			// Clear footnote labels for author names
@@ -624,10 +624,10 @@ async function scrapeDoc(doc, ids, itemKey) {
 			.map(element => element.textContent.trim().replace(/[0-9,]/g, '')),
 		// For oversea CNKI.
 		text(doc, '.brief h3').split(/[,.，；\d]\s*/).filter(element => element),
-		// For standard.
-		label2Text(doc, '起草单位').split(/[,;，；]\s*/),
+		// standard
+		labels.getWith('起草单位').split(/[,;，；]\s*/),
 		// For yearbook.
-		label2Text(doc, '主编单位').split(/[,;，；]\s*/)
+		labels.getWith('主编单位').split(/[,;，；]\s*/)
 	].find(element => element.length);
 	newItem.creators = creators.map(element => ZU.cleanAuthor(element, 'author'));
 
@@ -636,26 +636,28 @@ async function scrapeDoc(doc, ids, itemKey) {
 		+ getPureText(doc.querySelector('.summary .detailLink'))
 		+ ZU.xpathText(doc, '//p[contains(text(), "作者基本信息")]');
 	Z.debug(`puinfo:${pubInfo}`);
-	newItem.publicationTitle = tryMatch(pubInfo, /(.*?)[.,]/, 1);
+	newItem.publicationTitle = tryMatch(pubInfo, /(.*?)[.,]/, 1) || labels.getWith('报纸网站');
 	newItem.date = tryMatch(pubInfo, /(\d+),/, 1)
 		|| tryMatch(pubInfo, /(\d{4})年?/, 1)
-		|| label2Text(doc, '发布日期')
-		|| label2Text(doc, '发布单位')
-		|| label2Text(doc, '会议时间');
+		|| labels.getWith('发布日期')
+		|| labels.getWith('发布单位')
+		|| labels.getWith('报纸日期');
 	newItem.volume = tryMatch(pubInfo, /(\d*)\s*\(/, 1) || tryMatch(pubInfo, /0?(\d+)卷/, 1);
 	newItem.issue = tryMatch(pubInfo, /\(0?(\d+)\)/, 1) || tryMatch(pubInfo, /0?(\d+)期/, 1);
 	newItem.university = tryMatch(pubInfo, /.*(大学|university|school)/i);
-	newItem.university = tryMatch(pubInfo, /(硕士|博士)/);
-	newItem.ISBN = label2Text(doc, 'ISBN');
+	newItem.thesisType = tryMatch(pubInfo, /(硕士|博士)/);
+	newItem.ISBN = labels.getWith('ISBN');
 
 	/* else fields */
-	newItem.pages = tryMatch(text(doc, 'div.doc p.total-inform span:nth-child(2)'), /[\d-,+]*/) || label2Text(doc, 'Pages');
+	newItem.pages = tryMatch(text(doc, 'div.doc p.total-inform span:nth-child(2)'), /[\d-,+]*/)
+		|| labels.getWith(['Pages', '版号']);
 	newItem = Object.assign(newItem, fixItem(newItem, doc, ids, itemKey));
 	newItem.complete();
 }
 
 /* TODO: Compatible with English labels in English version of CNKI. */
 function fixItem(newItem, doc, ids, itemKey) {
+	let labels = new Labels(doc, 'div.doc span.rowtit, #content p, .summary li');
 	switch (newItem.itemType) {
 		case 'journalArticle':
 			// CN 中国刊物编号，非refworks中的callNumber
@@ -668,28 +670,34 @@ function fixItem(newItem, doc, ids, itemKey) {
 			newItem.creators[1].creatorType = 'Author';
 			break;
 		case 'patent':
-			newItem.place = label2Text(doc, '地址');
-			newItem.country = label2Text(doc, '国省代码');
-			newItem.patentNumber = label2Text(doc, '申请(专利)号');
-			newItem.filingDate = label2Text(doc, '申请日');
-			newItem.applicationNumber = label2Text(doc, '申请(专利)号');
-			newItem.issueDate = label2Text(doc, '授权公告日');
+			newItem.place = labels.getWith('地址');
+			newItem.country = labels.getWith('国省代码');
+			newItem.patentNumber = labels.getWith('申请(专利)号');
+			newItem.filingDate = labels.getWith('申请日');
+			newItem.applicationNumber = labels.getWith('申请(专利)号');
+			newItem.issueDate = labels.getWith('授权公告日');
 			newItem.rights = text(doc, '.claim > h5 + div');
 			break;
 		case 'conferencePaper':
-			newItem.place = label2Text(doc, '会议地点');
-			newItem.conferenceName = label2Text(doc, '会议名称');
+			newItem.proceedingsTitle = labels.getWith('会议录名称');
+			newItem.conferenceName = labels.getWith('会议名称');
+			newItem.date = labels.getWith('会议时间');
+			newItem.place = labels.getWith('会议地点');
 			break;
 		case 'standard':
-			newItem.number = label2Text(doc, '标准号');
-			newItem.committee = label2Text(doc, '标准技术委员会');
-			newItem.libraryCatalog = label2Text(doc, '国际标准分类号');
+			newItem.number = labels.getWith('标准号');
+			newItem.committee = labels.getWith('标准技术委员会');
+			newItem.libraryCatalog = labels.getWith('国际标准分类号');
 			newItem.status = text(doc, '.type');
+			break;
+		case 'newspaperArticle':
 			break;
 		default:
 			break;
 	}
-	newItem.abstractNote = newItem.abstractNote || text(doc, '.abstract-text') || label2Text(doc, 'Keywords');
+	newItem.abstractNote = newItem.abstractNote
+		|| text(doc, '.abstract-text')
+		|| labels.getWith('摘要');
 	newItem.abstractNote = newItem.abstractNote
 		.replace(/\s*[\r\n]\s*/g, '\n')
 		.replace(/&lt;.*?&gt;/g, '')
@@ -705,7 +713,7 @@ function fixItem(newItem, doc, ids, itemKey) {
 		+ `&filename=${ids.filename}`
 		+ `&v=`;
 	// CNKI DOI
-	if (!newItem.DOI) newItem.DOI = label2Text(doc, 'DOI');
+	if (!newItem.DOI) newItem.DOI = labels.getWith('DOI');
 	newItem.creators.forEach((element) => {
 		if (/[\u4e00-\u9fa5]/.test(element.lastName)) {
 			element.fieldMode = 1;
@@ -723,7 +731,7 @@ function fixItem(newItem, doc, ids, itemKey) {
 		.map(element => ZU.trimInternal(element.innerText).replace(/[,;，；]$/, ''));
 	// Keywords sometimes appear as a whole paragraph
 	if (!tags.length) {
-		tags = text(doc, 'div.doc p.keywords') || label2Text(doc, 'Keywords');
+		tags = text(doc, 'div.doc p.keywords') || labels.getWith('Keywords');
 		tags = tags.split(/[,;，；n]\s*/g);
 	}
 	newItem.tags = tags.map(element => ({ tag: element }));
@@ -810,22 +818,33 @@ function getAttachments(doc, keepPDF) {
 	return attachments;
 }
 
-/* Utility functions */
-
-function label2Text(doc, label) {
-	if (Array.isArray(label)) {
-		let result = label
-			.forEach(element => label2Text(doc, element))
-			.fiind(element => element);
-		return result
-			? result
-			: '';
+/* Util */
+class Labels {
+	constructor(doc, selector) {
+		this.innerData = Array.from(doc.querySelectorAll(selector));
 	}
-	else {
-		let data = Array.from(doc.querySelectorAll('div.doc span.rowtit'));
-		let labelElement = data.find(element => element.innerText.startsWith(label));
+
+	getWith(label, next = true) {
+		if (Array.isArray(label)) {
+			let result = label
+				.map(element => this.getWith(element, next));
+			return result.length
+				? result.find(element => element)
+				: '';
+		}
+		let test = function (element, label) {
+			if (typeof (label) == typeof (/./)) {
+				return label.test(element.innerText);
+			}
+			else {
+				return element.innerText.includes(label);
+			}
+		};
+		let labelElement = this.innerData.find(element => test(element, label));
 		return labelElement
-			? ZU.trimInternal(labelElement.nextElementSibling.innerText)
+			? labelElement.nextElementSibling && !/^[\s[【]+.*?[】\]\s]+[:：\s]*/.test(labelElement.nextElementSibling.innerText)
+				? ZU.trimInternal(labelElement.nextElementSibling.innerText)
+				: ZU.trimInternal(labelElement.innerText).replace(new RegExp(`^[s[【]*${label}[】\\]:：s]*`), '')
 			: '';
 	}
 }
@@ -906,8 +925,8 @@ var testCases = [
 				"volume": "32",
 				"attachments": [
 					{
-						"title": "Full Text PDF",
-						"mimeType": "application/pdf"
+						"title": "Full Text CAJ",
+						"mimeType": "application/caj"
 					}
 				],
 				"tags": [
