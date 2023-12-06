@@ -9,7 +9,7 @@
 	"inRepository": true,
 	"translatorType": 4,
 	"browserSupport": "gcsibv",
-	"lastUpdated": "2023-12-05 17:25:11"
+	"lastUpdated": "2023-12-06 08:04:04"
 }
 
 /*
@@ -43,14 +43,16 @@ var ids = {
 function detectWeb(doc, url) {
 	Z.debug("----------------CNKI 20231205------------------");
 	let ids = getIDFromPage(doc, url);
+	Z.debug(ids);
 	const multiplePattern = [
 
 		/*
 		search
 		https://kns.cnki.net/kns/search?dbcode=SCDB
 		https://kns.cnki.net/kns8s/
+		https://inds.cnki.net/kns/search/index?dbCode=DKCTZK&kw=5g&korder=1
 		 */
-		/kns8?s?\/search\?/i,
+		/kns8?s?\/search\??/i,
 
 		/*
 		advanced search
@@ -82,7 +84,8 @@ function detectWeb(doc, url) {
 	// #contentPanel for journal/yearbook navigation,
 	// .main_sh for oldversion,
 	// .resault-cont for CNKI space
-	let searchResult = doc.querySelector('#ModuleSearchResult, #contentPanel, .main_sh, .resault-cont');
+	// #content for geology version https://dizhi.cnki.net/
+	let searchResult = doc.querySelector('#ModuleSearchResult, #contentPanel, .main_sh, .resault-cont, #content');
 	if (searchResult) {
 		Z.monitorDOMChanges(searchResult, { childList: true, subtree: true });
 	}
@@ -108,37 +111,39 @@ function detectWeb(doc, url) {
 }
 
 function getIDFromPage(doc, url) {
-	ids = getIDFromURL(url) || getIDFromHeader(doc, url);
+	let ids = getIDFromURL(url) || getIDFromHeader(doc, url);
 	return ids;
 }
 
 function getIDFromURL(url) {
 	// Z.debug(`receive url: ${url}`);
-	ids = {
+	let ids = {
 		dbname: /[?&](?:db|table)[nN]ame=([^&#]*)/i,
 		filename: /[?&]filename=([^&#]*)/i,
 		dbcode: /[?&]dbcode=([^&#]*)/i
 	};
 	for (const key in ids) {
 		let value = tryMatch(url, ids[key], 1);
-		if (!value) return false;
+		// if (!value) return false;
 		ids[key] = value;
 	}
+	ids.dbcode = ids.dbcode || ids.dbname.substr(0, 4).toUpperCase();
 	ids.url = url;
 	return ids;
 }
 
 function getIDFromHeader(doc, url) {
-	ids = {
+	let ids = {
 		dbname: 'input#paramdbname',
 		filename: 'input#paramfilename',
 		dbcode: 'input#paramdbcode'
 	};
 	for (const key in ids) {
 		let value = attr(doc, ids[key], 'value');
-		if (!value) return false;
+		// if (!value) return false;
 		ids[key] = value;
 	}
+	ids.dbcode = ids.dbcode || ids.dbname.substr(0, 4).toUpperCase();
 	ids.url = url;
 	return ids;
 }
@@ -151,7 +156,6 @@ function getIDFromSpaceURL(url) {
 	};
 	for (const key in ids) {
 		let value = tryMatch(url, ids[key], 1);
-		if (!value) return false;
 		ids[key] = value;
 	}
 	ids.dbname = `${ids.dbcode}LAST${tryMatch(ids.filename, /[A-Z](\d{4})/, 1)}`;
@@ -221,9 +225,10 @@ function ids2itemType(ids) {
 		// 标准题录 standard zh
 		SCSD: 'standard',
 		// 标准题录 standard en
-		SOSD: 'standard'
+		SOSD: 'standard',
 		// 成果 achievements
 		// SNAD
+		DKCT: 'journalArticle'
 
 	};
 	let optionalDbcode = ids.dbname.substr(0, 4).toUpperCase();
@@ -235,39 +240,51 @@ function getSearchResults(doc, url, checkOnly) {
 	// uncomment the next line to confirm that the translator has been successfully updated when debugging in the browser
 	// items.debug = 'debug with CNKI.js v 2023120518001';
 	var found = false;
-	var rows = [];
-	var aSlector = '';
+	var searchTypes = [
 
-	/* journal navigation */
-	if (/\/journals\/.+\/detail/i.test(url)) {
-		Z.debug('Article list in journal navigation page');
-		rows = doc.querySelectorAll('dl#CataLogContent dd');
-		aSlector = 'span.name > a';
-	}
+		/* journalNavigation */
+		{
+			pattern: /\/journals\/.+\/detail/i,
+			rowSlector: 'dl#CataLogContent dd',
+			aSlector: 'span.name > a'
+		},
 
-	/* yearbook navigation */
-	else if (/\/yearbooks\/.+\/detail/i.test(url)) {
-		Z.debug('Article list in yearbook navigation page');
-		rows = doc.querySelectorAll('#contentPanel .itemNav');
-		aSlector = 'a';
-	}
+		/* yearbookNavigation */
+		{
+			pattern: /\/yearbooks\/.+\/detail/i,
+			rowSlector: '#contentPanel .itemNav',
+			aSlector: 'a'
+		},
 
-	/* CNKI space */
-	else if (/search\.cnki\.com/i.test(url)) {
-		Z.debug('Article list in CNKI space');
-		rows = doc.querySelectorAll('div#article_result div.list-item');
-		aSlector = 'p > a';
-	}
-	else {
-		// 'table.list_table tbody tr' design for https://chkdx.cnki.net, the hospital version of CNKI
-		rows = doc.querySelectorAll('table.result-table-list tbody tr,table.list_table tbody tr');
-		aSlector = 'td.name > a,td.seq+td > a';
-	}
+		/* CNKISpace */
+		{
+			pattern: /search\.cnki\.com/i,
+			rowSlector: '#contentPanel .itemNav',
+			aSlector: 'p > a'
+		},
+
+		/* geology */
+		{
+			pattern: /\/search\/index?/i,
+			rowSlector: '.s-single',
+			aSlector: 'h1 > a'
+		},
+
+		/* commom */
+		{
+			pattern: /.*/i,
+			// 'table.list_table tbody tr' design for https://chkdx.cnki.net, the hospital version of CNKI
+			rowSlector: 'table.result-table-list tbody tr,table.list_table tbody tr',
+			aSlector: 'td.name > a,td.seq+td > a'
+		}
+	];
+	var type = searchTypes.find(element => element.pattern.test(url));
+	var rows = doc.querySelectorAll(type.rowSlector);
 	if (!rows.length) return false;
 	for (let i = 0; i < rows.length; i++) {
 		let row = rows[i];
-		let href = attr(row, aSlector, 'href');
-		let title = attr(row, aSlector, 'title') || text(row, aSlector);
+		let href = attr(row, type.aSlector, 'href');
+		let title = attr(row, type.aSlector, 'title') || text(row, type.aSlector);
 		// Z.debug(`${href}\n${title}`);
 		if (!href || !title) continue;
 		if (checkOnly) return true;
@@ -344,6 +361,12 @@ async function doWeb(doc, url) {
 	else if (attr(doc, '#paramdbcode', 'value') == 'WWBD') {
 		await scrapeDoc(doc, getIDFromPage(doc, url));
 	}
+	else if (url.includes('inds.cnki')) {
+		await scrapeDoc(doc,
+			getIDFromPage(doc, url),
+			{ url: '', cite: '', cookieName: '', downloadlink: '' }
+		);
+	}
 	else {
 		await scrape(
 			doc,
@@ -360,7 +383,6 @@ async function scrape(doc, url = doc.location.href, itemKey, inMainland) {
 	var isSpace = /cnki\.com\.cn/.test(url);
 	ids = isSpace ? getIDFromSpaceURL(url) : getIDFromPage(doc, url);
 	Z.debug('scrape single item with ids:');
-	Z.debug(ids);
 
 	/*
 	In some rare cases, an exception occurred while scrape item,
@@ -571,7 +593,7 @@ async function scrapeDoc(doc, ids, itemKey) {
 	var newItem = new Zotero.Item(ids2itemType(ids));
 
 	/* title */
-	newItem.title = getPureText(doc.querySelector('div.doc h1, .h1-scholar'));
+	newItem.title = getPureText(doc.querySelector('div.doc h1, .h1-scholar, #chTitle'));
 	if (newItem.title.includes('\n')) {
 		newItem.extra += `titleTranslation: ${newItem.title.split('\n')[1]}`;
 		newItem.title = newItem.title.split('\n')[0];
@@ -579,17 +601,20 @@ async function scrapeDoc(doc, ids, itemKey) {
 	newItem.title = newItem.title.replace(/MT翻译$/, '');
 
 	/* Click to get a full abstract in a single article page */
-	let detailBtn = doc.querySelector('span a#ChDivSummaryMore');
+	let detailBtn = doc.querySelector('span a[id*="ChDivSummaryMore"]');
 	if (detailBtn) detailBtn.click();
 	// 'div.abstract-text' is usually found on old versions of CNKI or oversea CNKI.
 	newItem.abstractNote = text(doc, 'span#ChDivSummary, div.abstract-text');
 
 	/* creators */
 	let creators = [
+		// Do not use comma separated collectors, as there may be duplicate code that is difficult to filter
 		Array.from(doc.querySelectorAll('#authorpart span'))
 			// Clear footnote labels for author names
 			.map(element => element.textContent.trim().replace(/[0-9,]/g, '')),
 		Array.from(doc.querySelectorAll('#authorpart a'))
+			.map(element => element.textContent.trim().replace(/[0-9,]/g, '')),
+		Array.from(doc.querySelectorAll('#aulist > a'))
 			.map(element => element.textContent.trim().replace(/[0-9,]/g, '')),
 		// For oversea CNKI.
 		text(doc, '.brief h3').split(/[,.，；\d]\s*/).filter(element => element),
@@ -601,21 +626,23 @@ async function scrapeDoc(doc, ids, itemKey) {
 	newItem.creators = creators.map(element => ZU.cleanAuthor(element, 'author'));
 
 	/* publication information */
-	let pubInfo = innerText(doc, 'div.top-tip span');
-	newItem.publicationTitle = tryMatch(pubInfo, /(.*?)\./, 1);
-	newItem.date = tryMatch(pubInfo, /\d*?(?:,)/)
+	let pubInfo = innerText(doc, 'div.top-tip span') || getPureText(doc.querySelector('.summary .detailLink'));
+	Z.debug(`puinfo:${pubInfo}`);
+	newItem.publicationTitle = tryMatch(pubInfo, /(.*?)[.,]/, 1);
+	newItem.date = tryMatch(pubInfo, /(\d+),/, 1)
+		|| tryMatch(pubInfo, /(\d+)年/, 1)
 		|| label2Text(doc, '发布日期')
 		|| label2Text(doc, '发布单位')
 		|| label2Text(doc, '会议时间');
-	newItem.volume = tryMatch(pubInfo, /(\d*)\s*\(/, 1);
-	newItem.issue = tryMatch(pubInfo, /\(0?(\d+)\)/, 1);
+	newItem.volume = tryMatch(pubInfo, /(\d*)\s*\(/, 1) || tryMatch(pubInfo, /0?(\d+)卷/, 1);;
+	newItem.issue = tryMatch(pubInfo, /\(0?(\d+)\)/, 1) || tryMatch(pubInfo, /0?(\d+)期/, 1);
 	newItem.ISBN = label2Text(doc, 'ISBN');
 
 	/* else fields */
 	newItem.number = label2Text(doc, '标准号');
 	newItem.place = label2Text(doc, '会议地点');
 	newItem.pages = tryMatch(text(doc, 'div.doc p.total-inform span:nth-child(2)'), /[\d-,+]*/) || label2Text(doc, 'Pages');
-	fixItem(newItem, doc, ids, itemKey);
+	newItem = Object.assign(newItem, fixItem(newItem, doc, ids, itemKey));
 	newItem.complete();
 }
 
@@ -676,13 +703,13 @@ function fixItem(newItem, doc, ids, itemKey) {
 	});
 	if (doc.querySelector('.icon-shoufa')) {
 		newItem.itemType = 'preprint';
-		newItem.date = tryMatch(innerText(doc, '.head-time'), /：([\d-]*)/, 1);
+		newItem.date = tryMatch(innerText(doc, '.head-time, .head-tag'), /：([\d-]*)/, 1);
 	}
 
 	newItem.pages = newItem.pages.replace(/0*([1-9]\d*)/g, '$1');
 
 	/* tags */
-	let tags = Array.from(doc.querySelectorAll('div.doc p.keywords a'))
+	let tags = Array.from(doc.querySelectorAll('div.doc p.keywords a, #ChDivKeyWord > a'))
 		.map(element => ZU.trimInternal(element.innerText).replace(/[,;，；]$/, ''));
 	// Keywords sometimes appear as a whole paragraph
 	if (!tags.length) {
@@ -721,7 +748,7 @@ async function scrapeZhBook(doc, url, itemKey) {
 		.split(/\s/)
 		.map(element => ZU.cleanAuthor(element, 'author'));
 	bookItem.creators.forEach(element => element.fieldMode = 1);
-	var data = innerText(doc, '.bc_a, .desc-info')
+	let data = innerText(doc, '.bc_a, .desc-info')
 		.split('\n')
 		.map((element) => {
 			return [tryMatch(element, /^(.+)：/, 1).replace(/\s/g, ''), tryMatch(element, /：(.*)/, 1)];
@@ -754,8 +781,8 @@ async function scrapeZhBook(doc, url, itemKey) {
 // add pdf or caj to attachments, default is pdf
 function getAttachments(doc, keepPDF) {
 	var attachments = [];
-	let pdfurl = attr(doc, 'a[id^="pdfDown"]', 'href');
-	let cajurl = attr(doc, 'a#cajDown', 'href');
+	let pdfurl = attr(doc, 'a[id^="pdfDown"]') || attr(doc, 'a[href*="/down/"]', 'href', 1);
+	let cajurl = attr(doc, 'a#cajDown', 'href') || attr(doc, 'a[href*="/down/"]', 'href', 0);
 	if (keepPDF && pdfurl) {
 		attachments.push({
 			title: 'Full Text PDF',
@@ -1498,6 +1525,82 @@ var testCases = [
 					},
 					{
 						"tag": "WELFARE"
+					}
+				],
+				"notes": [],
+				"seeAlso": []
+			}
+		]
+	},
+	{
+		"type": "web",
+		"url": "https://inds.cnki.net/kcms/detail?dbcode=&dbname=DKCTLKCJFD2014&filename=PZKX201405001&pcode=DKCT&zylx=",
+		"items": [
+			{
+				"itemType": "journalArticle",
+				"title": "5G移动通信发展趋势与若干关键技术",
+				"creators": [
+					{
+						"firstName": "",
+						"lastName": "尤肖虎",
+						"creatorType": "author",
+						"fieldMode": 1
+					},
+					{
+						"firstName": "",
+						"lastName": "潘志文",
+						"creatorType": "author",
+						"fieldMode": 1
+					},
+					{
+						"firstName": "",
+						"lastName": "高西奇",
+						"creatorType": "author",
+						"fieldMode": 1
+					},
+					{
+						"firstName": "",
+						"lastName": "曹淑敏",
+						"creatorType": "author",
+						"fieldMode": 1
+					},
+					{
+						"firstName": "",
+						"lastName": "邬贺铨",
+						"creatorType": "author",
+						"fieldMode": 1
+					}
+				],
+				"date": "2014",
+				"abstractNote": "第5代移动通信系统(5G)是面向2020年之后的新一代移动通信系统,其技术发展尚处于探索阶段.结合国内外移动通信发展的最新趋势,本文对5G移动通信发展的基本需求、技术特点与可能发展途径进行了展望,并分无线传输和无线网络两个部分,重点论述了富有发展前景的7项5G移动通信关键技术,包括大规模天线阵列、基于滤波器组的多载波技术、全双工复用、超密集网络、自组织网络、软件定义网络及内容分发网络.本文还概括性地介绍了国内5G移动通信的相关研发活动及其近期发展目标.",
+				"issue": "5",
+				"libraryCatalog": "CNKI",
+				"publicationTitle": "中国科学:信息科学",
+				"url": "https://inds.cnki.net/kcms/detail?dbcode=&dbname=DKCTLKCJFD2014&filename=PZKX201405001&pcode=DKCT&zylx=",
+				"attachments": [
+					{
+						"title": "Full Text PDF",
+						"mimeType": "application/pdf"
+					}
+				],
+				"tags": [
+					{
+						"tag": "5G"
+					},
+					{
+						"tag": "5G,key techniques,development trends,radio transmission technology,wireless network technology"
+					},
+					{
+						"tag": "关键技术"
+					},
+					{
+						"tag": "发展趋势"
+					},
+					{
+						"tag": "无线传输技术"
+					},
+					{
+						"tag": "无线网络技术"
 					}
 				],
 				"notes": [],
