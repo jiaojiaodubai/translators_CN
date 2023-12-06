@@ -847,7 +847,7 @@ class Labels {
 		return labelElement
 			? labelElement.nextElementSibling && !/^[\s[【]+.*?[】\]\s]+[:：\s]*/.test(labelElement.nextElementSibling.innerText)
 				? ZU.trimInternal(labelElement.nextElementSibling.innerText)
-				: ZU.trimInternal(labelElement.innerText).replace(new RegExp(`^[s[【]*${label}[】\\]:：s]*`), '')
+				: ZU.trimInternal(labelElement.innerText).replace(new RegExp(`^[\\s[【]*${label}[】\\]:：\\s]*`), '')
 			: '';
 	}
 }
