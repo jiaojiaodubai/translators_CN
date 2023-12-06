@@ -9,7 +9,7 @@
 	"inRepository": true,
 	"translatorType": 4,
 	"browserSupport": "gcsibv",
-	"lastUpdated": "2023-12-06 08:50:25"
+	"lastUpdated": "2023-12-06 09:32:45"
 }
 
 /*
@@ -124,9 +124,9 @@ function getIDFromURL(url) {
 	};
 	for (const key in ids) {
 		let value = tryMatch(url, ids[key], 1);
-		// if (!value) return false;
 		ids[key] = value;
 	}
+	if (!ids.dbname || !ids.filename) return false;
 	ids.dbcode = ids.dbcode || ids.dbname.substr(0, 4).toUpperCase();
 	ids.url = url;
 	return ids;
@@ -140,6 +140,7 @@ function getIDFromHeader(doc, url) {
 	};
 	for (const key in ids) {
 		let value = attr(doc, ids[key], 'value');
+		Z.debug(value);
 		// if (!value) return false;
 		ids[key] = value;
 	}
@@ -158,6 +159,7 @@ function getIDFromSpaceURL(url) {
 		let value = tryMatch(url, ids[key], 1);
 		ids[key] = value;
 	}
+	if (!ids.dbname || !ids.filename) return false;
 	ids.dbname = `${ids.dbcode}LAST${tryMatch(ids.filename, /[A-Z](\d{4})/, 1)}`;
 	ids.url = url;
 	return ids;
@@ -444,7 +446,9 @@ async function scrapeWithGetExport(doc, ids, itemKey, inMainland) {
 	let postData = `filename=${ids.dbname}!${ids.filename}!1!0`
 		// Although there are two data formats that are redundant,
 		// this can make the request more "ordinary" to the server.
+		+ `${inMainland ? '&uniplatform=NZKPT' : ''}`
 		+ '&displaymode=GBTREFER%2Celearning%2CEndNote';
+	Z.debug(postData);
 	let referText = await requestJSON(
 		postUrl,
 		{
