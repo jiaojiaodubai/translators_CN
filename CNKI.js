@@ -41,7 +41,7 @@ var ids = {
 // var debugMode = false;
 
 function detectWeb(doc, url) {
-	Z.debug("----------------CNKI 20231205------------------");
+	Z.debug("----------------2023-12-07 05:43:47------------------");
 	let ids = getIDFromPage(doc, url);
 	Z.debug(ids);
 	const multiplePattern = [
