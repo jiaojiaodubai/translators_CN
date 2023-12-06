@@ -9,7 +9,7 @@
 	"inRepository": true,
 	"translatorType": 4,
 	"browserSupport": "gcsibv",
-	"lastUpdated": "2023-12-06 13:16:24"
+	"lastUpdated": "2023-12-06 14:56:16"
 }
 
 /*
@@ -531,8 +531,9 @@ async function scrapeWithShowExport(itemKeys, inMainland) {
 	for (let i = 0; i < referText.length; i++) {
 		let text = referText[i];
 		text = text.replace(/(^<li>\s*)|(\s*<\/li>$)/g, '');
+		Z.debug(text);
 		await parseRefer(
-			referText,
+			text,
 			document.createElement('div'),
 			// This function is designed to be used when the item documents are unavailable,
 			// so passing an empty Element to meet compatibility requirements.
@@ -547,6 +548,8 @@ async function scrapeWithShowExport(itemKeys, inMainland) {
 }
 
 async function parseRefer(referText, doc, ids, itemKey) {
+	Z.debug('parsing referText:');
+	Z.debug(referText);
 	// Item without title is invalid.
 	if (!/%T /.test(referText)) throw TypeError;
 	Z.debug('Get referText from API successfuly!');
