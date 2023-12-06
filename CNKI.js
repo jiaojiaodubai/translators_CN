@@ -9,7 +9,7 @@
 	"inRepository": true,
 	"translatorType": 4,
 	"browserSupport": "gcsibv",
-	"lastUpdated": "2023-12-06 08:04:04"
+	"lastUpdated": "2023-12-06 08:50:25"
 }
 
 /*
@@ -232,7 +232,7 @@ function ids2itemType(ids) {
 
 	};
 	let optionalDbcode = ids.dbname.substr(0, 4).toUpperCase();
-	return dbcode[optionalDbcode] || dbcode[ids.dbcode];
+	return dbcode[ids.dbcode] || dbcode[optionalDbcode];
 }
 
 function getSearchResults(doc, url, checkOnly) {
@@ -362,8 +362,10 @@ async function doWeb(doc, url) {
 		await scrapeDoc(doc, getIDFromPage(doc, url));
 	}
 	else if (url.includes('inds.cnki')) {
+		let ids = getIDFromPage(doc, url);
+		ids.dbcode = ids.dbname.slice(6, 10);
 		await scrapeDoc(doc,
-			getIDFromPage(doc, url),
+			ids,
 			{ url: '', cite: '', cookieName: '', downloadlink: '' }
 		);
 	}
@@ -614,7 +616,7 @@ async function scrapeDoc(doc, ids, itemKey) {
 			.map(element => element.textContent.trim().replace(/[0-9,]/g, '')),
 		Array.from(doc.querySelectorAll('#authorpart a'))
 			.map(element => element.textContent.trim().replace(/[0-9,]/g, '')),
-		Array.from(doc.querySelectorAll('#aulist > a'))
+		Array.from(doc.querySelectorAll('a[href*="sfield=au"]'))
 			.map(element => element.textContent.trim().replace(/[0-9,]/g, '')),
 		// For oversea CNKI.
 		text(doc, '.brief h3').split(/[,.，；\d]\s*/).filter(element => element),
@@ -626,21 +628,23 @@ async function scrapeDoc(doc, ids, itemKey) {
 	newItem.creators = creators.map(element => ZU.cleanAuthor(element, 'author'));
 
 	/* publication information */
-	let pubInfo = innerText(doc, 'div.top-tip span') || getPureText(doc.querySelector('.summary .detailLink'));
+	let pubInfo = innerText(doc, 'div.top-tip')
+		+ getPureText(doc.querySelector('.summary .detailLink'))
+		+ ZU.xpathText(doc, '//p[contains(text(), "作者基本信息")]');
 	Z.debug(`puinfo:${pubInfo}`);
 	newItem.publicationTitle = tryMatch(pubInfo, /(.*?)[.,]/, 1);
 	newItem.date = tryMatch(pubInfo, /(\d+),/, 1)
-		|| tryMatch(pubInfo, /(\d+)年/, 1)
+		|| tryMatch(pubInfo, /(\d{4})年?/, 1)
 		|| label2Text(doc, '发布日期')
 		|| label2Text(doc, '发布单位')
 		|| label2Text(doc, '会议时间');
-	newItem.volume = tryMatch(pubInfo, /(\d*)\s*\(/, 1) || tryMatch(pubInfo, /0?(\d+)卷/, 1);;
+	newItem.volume = tryMatch(pubInfo, /(\d*)\s*\(/, 1) || tryMatch(pubInfo, /0?(\d+)卷/, 1);
 	newItem.issue = tryMatch(pubInfo, /\(0?(\d+)\)/, 1) || tryMatch(pubInfo, /0?(\d+)期/, 1);
+	newItem.university = tryMatch(pubInfo, /.*(大学|university|school)/i);
+	newItem.university = tryMatch(pubInfo, /(硕士|博士)/);
 	newItem.ISBN = label2Text(doc, 'ISBN');
 
 	/* else fields */
-	newItem.number = label2Text(doc, '标准号');
-	newItem.place = label2Text(doc, '会议地点');
 	newItem.pages = tryMatch(text(doc, 'div.doc p.total-inform span:nth-child(2)'), /[\d-,+]*/) || label2Text(doc, 'Pages');
 	newItem = Object.assign(newItem, fixItem(newItem, doc, ids, itemKey));
 	newItem.complete();
@@ -669,9 +673,11 @@ function fixItem(newItem, doc, ids, itemKey) {
 			newItem.rights = text(doc, '.claim > h5 + div');
 			break;
 		case 'conferencePaper':
+			newItem.place = label2Text(doc, '会议地点');
 			newItem.conferenceName = label2Text(doc, '会议名称');
 			break;
 		case 'standard':
+			newItem.number = label2Text(doc, '标准号');
 			newItem.committee = label2Text(doc, '标准技术委员会');
 			newItem.libraryCatalog = label2Text(doc, '国际标准分类号');
 			newItem.status = text(doc, '.type');
@@ -821,6 +827,7 @@ function label2Text(doc, label) {
 }
 
 function tryMatch(string, pattern, index = 0) {
+	if (!string) return '';
 	let match = string.match(pattern);
 	return (match && match[index])
 		? match[index]
@@ -828,6 +835,7 @@ function tryMatch(string, pattern, index = 0) {
 }
 
 function getPureText(element) {
+	if (!element) return '';
 	// Deep copy to avoid affecting the original page.
 	let elementCopy = element.cloneNode(true);
 	while (elementCopy.lastElementChild) {
@@ -1601,6 +1609,82 @@ var testCases = [
 					},
 					{
 						"tag": "无线网络技术"
+					}
+				],
+				"notes": [],
+				"seeAlso": []
+			}
+		]
+	},
+	{
+		"type": "web",
+		"url": "https://inds.cnki.net/kcms/detail?dbcode=&dbname=DKCTLKCMFDTEMP&filename=1023734733.nh&pcode=DKCT&zylx=",
+		"detectedItemType": "journalArticle",
+		"items": [
+			{
+				"itemType": "thesis",
+				"title": "铜离子表面印迹材料的制备及其催化性能研究",
+				"creators": [
+					{
+						"firstName": "",
+						"lastName": "吕智博",
+						"creatorType": "contributor",
+						"fieldMode": 1
+					},
+					{
+						"firstName": "",
+						"lastName": "迟子芳；",
+						"creatorType": "Author",
+						"fieldMode": 1
+					},
+					{
+						"firstName": "",
+						"lastName": "李怀；",
+						"creatorType": "contributor",
+						"fieldMode": 1
+					}
+				],
+				"date": "2023",
+				"abstractNote": "含铜废水污染广泛、毒性大,已严重威胁生态环境和人体健康。吸附法是一种常见的金属铜去除方法,通过物理化学吸附作用广泛应用于富集和分离金属铜。由于环境介质中污染情况复杂,环境污染风险高,因此需要一种针对于目标离子高效去除及选择性识别能力的技术。表面离子印迹技术通过选择合适的功能单体、交联剂及基底材料制备针对于目标离子形成特异性识别位点的材料,具有较高的选择性。本文以氧化石墨烯（GO）为印迹母体材料、四氧化三铁（Fe3O4/M）为磁性组分,二价铜离子（Cu（Ⅱ））作为模版离子,经过有机-无机杂化功能单体ATPES（硅烷偶联剂350）-MAA（甲基丙烯酸）,以及交联剂二甲基丙烯酸乙二醇酯（EGDMA）结合作用,成功制备了高效选择去除铜离子的铜离子表面印迹聚合物（MS/MGO-Cu-iip）。为确定该材料的最佳合成及反应条件,本文通过功能单体喂料比,动力学,热力学分析等进行探究。此外,在印迹材料循环吸附重金属五次后,吸附剂吸附能力下降,对于废弃物处理需要一种经济、高效的手段来有效利用印迹材料。本文制备的铜离子印迹材料不但解决了污水中铜污染的问题,并且将铜离子印迹材料作为一种高效的催化剂活性成分,直接加间接催化降解四环素,大大提高了材料回收利用及环保的经济价值。针对于将MS/MGO-Cu-iip磁性回收并将其作为非均相催化剂结合氧气催化降解四环素（TC）是本研究的亮点,本文主要结论如下:（1）硅烷偶联剂（APTES）和甲基丙烯酸（MAA）的喂料比是材料吸附性能效果的重要因素。最佳合成条件为:APTES 14 m L、MAA 51 m L、Cu（Ⅱ）8 mmol、MGO 0.5 g。探究了Zn（Ⅱ）、Pb（Ⅱ）、Cd（Ⅱ）和Ni（Ⅱ）作为Cu（Ⅱ）的对比离子进行竞争的影响。结果表明,影响吸附容量的因素为金属离子的水合离子半径,并且在双元体系中,MS/MGO-Cu-iip对Cu（II）吸附容量有所下降,但下降效果有限。MS/MGO-Cu-iip对铜离子具有较高的选择性吸附效果。（2）通过扫描电镜（SEM）、磁敏性分析（VSM）、比表面积,孔径分析（BET）、X射线晶体衍射表征分析（XRD）对MS/MGO-Cu-iip进行表征分析。结果表明:反应前MS/MGO-Cu-iip材料表面呈不规则且具有丰富印迹空穴结构,反应后印迹空穴成功捕获铜离子,致使吸附位点充分填充;与磁性氧化石墨烯（MGO）相比,印迹材料的制备导致MS/MGO-Cu-iip比饱和磁场强度在一定程度上减弱,但材料仍为超顺磁性。两者的饱和磁化强度分别为42.2 emu/g和57.3 emu/g。BET分析表明,表面印迹材料为介孔材料,MGO与MS/MGO-Cu-iip的比表面积分别为88.54 m2/g和155.55 m2/g;Fe3O4成功结合在GO之上,且交联过程没有改变材料的基本结构。MS/MGO-Cu-iip在5次循环使用后,可用反应位点不断减少,其对Cu（Ⅱ）吸附性能逐步下降到80%以下。（3）为了使循环后的印迹材料“变废为宝”。针对MS/MGO-Cu-iip作为非均相催化剂高效利用,进行四环素（TC）的催化降解。结果表明,在不同材料投加量和TC初始投加量下,MS/MGO-Cu-iip活化活性氧物质（ROS）对TC的去除效果均好于单独使用GO或MGO。值得注意的是,由于铜离子的介入,致使非均相催化剂相较于传统芬顿反应,在中性条件下也具有良好的TC去除效果。在自由基淬灭试验中,O2·-为TC去除反应的主要活性自由基。此外,依据通氮气和脱附试验计算,TC对MS/MGO-Cu-iip的吸附率和降解率分别为30.98%和63.10%。其中,MS/MGO-Cu-iip对TC的直接降解率和间接降解率分别为45.93%和17.17%。",
+				"libraryCatalog": "CNKI",
+				"university": "硕士",
+				"url": "https://inds.cnki.net/kcms/detail?dbcode=&dbname=DKCTLKCMFDTEMP&filename=1023734733.nh&pcode=DKCT&zylx=",
+				"attachments": [
+					{
+						"title": "Full Text PDF",
+						"mimeType": "application/pdf"
+					}
+				],
+				"tags": [
+					{
+						"tag": "copper ion surface imprinting"
+					},
+					{
+						"tag": "heterogeneous catalyst"
+					},
+					{
+						"tag": "reuse of imprinted materials"
+					},
+					{
+						"tag": "selective adsorption"
+					},
+					{
+						"tag": "tetracycline"
+					},
+					{
+						"tag": "印迹材料的再利用"
+					},
+					{
+						"tag": "四环素"
+					},
+					{
+						"tag": "选择性吸附"
+					},
+					{
+						"tag": "铜离子表面印迹"
+					},
+					{
+						"tag": "非均相催化剂"
 					}
 				],
 				"notes": [],
