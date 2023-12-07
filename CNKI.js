@@ -9,7 +9,7 @@
 	"inRepository": true,
 	"translatorType": 4,
 	"browserSupport": "gcsibv",
-	"lastUpdated": "2023-12-07 07:58:10"
+	"lastUpdated": "2023-12-07 10:41:57"
 }
 
 /*
@@ -31,18 +31,138 @@
 */
 
 /* A series of identifiers for item, used to request data from APIs. */
-var ids = {
-	dbname: '',
-	filename: '',
-	dbcode: '',
-	url: ''
-};
+class ID {
+	constructor(doc, url) {
+		this.dbname = '';
+		this.filename = '';
+		this.dbcode = '';
+		this.url = '';
+		if (doc && url) {
+			this.commonId(doc, url);
+		}
+		else if (doc) {
+			this.spaceId(doc);
+		}
+	}
+
+	spaceId(url) {
+		this.filename = tryMatch(url, /-([A-Z\d]+)\./, 1);
+		this.dbcode = tryMatch(url, /\/([A-Z]{4})TOTAL-/, 1);
+		this.dbname = `${this.dbcode}LAST${tryMatch(this.filename, /[A-Z](\d{4})/, 1)}`;
+		this.url = url;
+	}
+
+	commonId(doc, url) {
+		let frame = {
+			dbname: {
+				selector: 'input#paramdbname',
+				pattern: /[?&](?:db|table)[nN]ame=([^&#]*)/i
+			},
+			filename: {
+				selector: 'input#paramfilename',
+				pattern: /[?&]filename=([^&#]*)/i
+			},
+			dbcode: {
+				selector: 'input#paramdbcode',
+				pattern: /[?&]dbcode=([^&#]*)/i
+			}
+		};
+		for (const key in frame) {
+			this[key] = attr(doc, frame[key].selector, 'value')
+				|| tryMatch(url, frame[key].pattern, 1);
+		}
+		this.dbcode = /^DKCT/.test(this.dbname)
+			// geology version
+			? this.dbname.slice(6, 10)
+			: this.dbcode || this.dbname.substr(0, 4).toUpperCase();
+		this.url = url;
+	}
+
+	toBoolean() {
+		return Boolean(this.dbname && this.filename);
+	}
+
+	toItemtype() {
+		let typeMap = {
+			// 学术辑刊 zh
+			CCJD: 'journalArticle',
+			// 学术期刊 journal zh
+			CJFQ: 'journalArticle',
+			// 学术期刊 journal en
+			WWJD: 'journalArticle',
+			// 特色期刊 journal
+			CJFN: 'journalArticle',
+	
+			/* 余下journal未在页面找到，可能已经过时 */
+			CDMD: 'journalArticle',
+			CJFD: 'journalArticle',
+			CAPJ: 'journalArticle',
+			CJZK: 'journalArticle',
+			SJES: 'journalArticle',
+			SJPD: 'journalArticle',
+			SSJD: 'journalArticle',
+			// 博士 dissertation zh
+			CDFD: 'thesis',
+			// 硕士 dissertation zh
+			CMFD: 'thesis',
+			// 下面两个未在页面上见到
+			CDMH: 'thesis',
+			CLKM: 'thesis',
+			CHKN: 'newspaperArticle',
+			CHKJ: 'newspaperArticle',
+			// 报纸 newspaper zh
+			CCND: 'newspaperArticle',
+			// 中国专利 patent zh
+			SCPD: 'patent',
+			// 境外专利 patent en
+			SOPD: 'patent',
+			SCOD: 'patent',
+			// 年鉴 almanac zh，无对应条目类型，以期刊记录
+			CYFD: 'journalArticle',
+			// 国内会议 conference zh
+			CPFD: 'conferencePaper',
+			// （国外）会议 en
+			WWPD: 'conferencePaper',
+			// 会议视频 video zh
+			CPVD: 'conferencePaper',
+			// 国际会议 conference en zh
+			CIPD: 'conferencePaper',
+			IPFD: 'conferencePaper',
+			// 视频 video zh
+			// CCVD
+			/* 实际上无法匹配到图书的dbcode */
+			// 中文图书 book zh
+			WBFD: 'book',
+			// 外文图书 book en
+			WWBD: 'book',
+			// 国家标准 standard zh
+			SCSF: 'standard',
+			// 行业标准 standard zh
+			SCHF: 'standard',
+			// 标准题录 standard zh
+			SCSD: 'standard',
+			// 标准题录 standard en
+			SOSD: 'standard',
+			// 成果 achievements
+			// SNAD
+		};
+		return typeMap[this.dbcode];
+	}
+
+	toLanguage() {
+		// zh database code: CJFQ,CDFD,CMFD,CPFD,IPFD,CPVD,CCND,WBFD,SCSF,SCHF,SCSD,SNAD,CCJD,CJFN,CCVD
+		// en database code: WWJD,IPFD,WWPD,WWBD,SOSD
+		return ['WWJD', 'IPFD', 'WWPD', 'WWBD', 'SOSD'].includes(this.debcode)
+			? 'en-US'
+			: 'zh-CN';
+	}
+}
 
 // var debugMode = false;
 
 function detectWeb(doc, url) {
 	Z.debug("----------------CNKI 2023-12-07 15:55:30------------------");
-	let ids = getIDFromPage(doc, url);
+	let ids = new ID(doc, url);
 	Z.debug('detect ids:');
 	Z.debug(ids);
 	const multiplePattern = [
@@ -90,8 +210,8 @@ function detectWeb(doc, url) {
 	if (searchResult) {
 		Z.monitorDOMChanges(searchResult, { childList: true, subtree: true });
 	}
-	if (ids) {
-		return ids2itemType(ids);
+	if (ids.toBoolean()) {
+		return ids.toItemtype();
 	}
 	else if (url.includes('book/bookdetail')) {
 		// 知网心可图书馆，CNKI thingker
@@ -107,133 +227,6 @@ function detectWeb(doc, url) {
 	else {
 		return false;
 	}
-}
-
-function getIDFromPage(doc, url) {
-	let ids = getIDFromURL(url) || getIDFromHeader(doc, url);
-	if (/^DKCT/.test(ids.dbname)) {
-		ids.dbcode = ids.dbname.slice(6, 10);
-	}
-	return ids;
-}
-
-function getIDFromURL(url) {
-	// Z.debug(`receive url: ${url}`);
-	let ids = {
-		dbname: /[?&](?:db|table)[nN]ame=([^&#]*)/i,
-		filename: /[?&]filename=([^&#]*)/i,
-		dbcode: /[?&]dbcode=([^&#]*)/i
-	};
-	for (const key in ids) {
-		let value = tryMatch(url, ids[key], 1);
-		ids[key] = value;
-	}
-	if (!ids.dbname || !ids.filename) return false;
-	ids.dbcode = ids.dbcode || ids.dbname.substr(0, 4).toUpperCase();
-	ids.url = url;
-	return ids;
-}
-
-function getIDFromHeader(doc, url) {
-	let ids = {
-		dbname: 'input#paramdbname',
-		filename: 'input#paramfilename',
-		dbcode: 'input#paramdbcode'
-	};
-	for (const key in ids) {
-		let value = attr(doc, ids[key], 'value');
-		ids[key] = value;
-	}
-	if (!ids.dbname || !ids.filename) return false;
-	ids.dbcode = ids.dbcode || ids.dbname.substr(0, 4).toUpperCase();
-	ids.url = url;
-	return ids;
-}
-
-function getIDFromSpaceURL(url) {
-	// url example: https://www.cnki.com.cn/Article/CJFDTOTAL-SYYY202311015.htm
-	ids = {
-		filename: /-([A-Z\d]+)\./,
-		dbcode: /\/([A-Z]{4})TOTAL-/
-	};
-	for (const key in ids) {
-		let value = tryMatch(url, ids[key], 1);
-		ids[key] = value;
-	}
-	if (!ids.dbname || !ids.filename) return false;
-	ids.dbname = `${ids.dbcode}LAST${tryMatch(ids.filename, /[A-Z](\d{4})/, 1)}`;
-	ids.url = url;
-	return ids;
-}
-
-function ids2itemType(ids) {
-	const dbcode = {
-		// zh database code: CJFQ,CDFD,CMFD,CPFD,IPFD,CPVD,CCND,WBFD,SCSF,SCHF,SCSD,SNAD,CCJD,CJFN,CCVD
-		// en database code: WWJD,IPFD,WWPD,WWBD,SOSD
-		// 学术辑刊 zh
-		CCJD: 'journalArticle',
-		// 学术期刊 journal zh
-		CJFQ: 'journalArticle',
-		// 学术期刊 journal en
-		WWJD: 'journalArticle',
-		// 特色期刊 journal
-		CJFN: 'journalArticle',
-
-		/* 余下journal未在页面找到，可能已经过时 */
-		CDMD: 'journalArticle',
-		CJFD: 'journalArticle',
-		CAPJ: 'journalArticle',
-		CJZK: 'journalArticle',
-		SJES: 'journalArticle',
-		SJPD: 'journalArticle',
-		SSJD: 'journalArticle',
-		// 博士 dissertation zh
-		CDFD: 'thesis',
-		// 硕士 dissertation zh
-		CMFD: 'thesis',
-		// 下面两个未在页面上见到
-		CDMH: 'thesis',
-		CLKM: 'thesis',
-		CHKN: 'newspaperArticle',
-		CHKJ: 'newspaperArticle',
-		// 报纸 newspaper zh
-		CCND: 'newspaperArticle',
-		// 中国专利 patent zh
-		SCPD: 'patent',
-		// 境外专利 patent en
-		SOPD: 'patent',
-		SCOD: 'patent',
-		// 年鉴 almanac zh，无对应条目类型，以期刊记录
-		CYFD: 'journalArticle',
-		// 国内会议 conference zh
-		CPFD: 'conferencePaper',
-		// （国外）会议 en
-		WWPD: 'conferencePaper',
-		// 会议视频 video zh
-		CPVD: 'conferencePaper',
-		// 国际会议 conference en zh
-		CIPD: 'conferencePaper',
-		IPFD: 'conferencePaper',
-		// 视频 video zh
-		// CCVD
-		/* 实际上无法匹配到图书的dbcode */
-		// 中文图书 book zh
-		WBFD: 'book',
-		// 外文图书 book en
-		WWBD: 'book',
-		// 国家标准 standard zh
-		SCSF: 'standard',
-		// 行业标准 standard zh
-		SCHF: 'standard',
-		// 标准题录 standard zh
-		SCSD: 'standard',
-		// 标准题录 standard en
-		SOSD: 'standard',
-		// 成果 achievements
-		// SNAD
-	};
-	let optionalDbcode = ids.dbname.substr(0, 4).toUpperCase();
-	return dbcode[ids.dbcode] || dbcode[optionalDbcode];
 }
 
 function getSearchResults(doc, url, checkOnly) {
@@ -310,6 +303,7 @@ async function doWeb(doc, url) {
 	// "NZKPT" is marked as Chinese Mainland.
 	// Because CNKI has different APIs inside and outside Chinese Mainland, it needs to be differentiated.
 	const inMainland = doc.querySelector('a[href*="NZKPT"]');
+	let ids = new ID(doc, url);
 
 	/*
 	For multiple items, prioritize trying to crawl them one by one, as documents always provide additional information;
@@ -358,13 +352,11 @@ async function doWeb(doc, url) {
 	else if (url.includes('/thinker.cnki/')) {
 		await scrapeZhBook(doc, url);
 	}
-	// Scholar book
-	else if (attr(doc, '#paramdbcode', 'value') == 'WWBD') {
-		await scrapeDoc(doc, getIDFromPage(doc, url));
-	}
-	else if (url.includes('inds.cnki')) {
-		await scrapeDoc(doc,
-			getIDFromPage(doc, url),
+	// geology, scholar
+	else if (url.includes('inds.cnki') || ids.dbcode == 'WWBD') {
+		await scrapeDoc(
+			doc,
+			ids,
 			{ url: '', cite: '', cookieName: '', downloadlink: '' }
 		);
 	}
@@ -382,7 +374,7 @@ async function doWeb(doc, url) {
 
 async function scrape(doc, url = doc.location.href, itemKey, inMainland) {
 	var isSpace = /cnki\.com\.cn/.test(url);
-	ids = isSpace ? getIDFromSpaceURL(url) : getIDFromPage(doc, url);
+	let ids = isSpace ? new ID(url) : new ID(doc, url);
 	Z.debug('scrape single item with ids:');
 
 	/*
@@ -613,7 +605,8 @@ async function parseRefer(referText, doc, ids, itemKey) {
 /* TODO: Compatible with English labels in English version of CNKI. */
 async function scrapeDoc(doc, ids, itemKey) {
 	Z.debug('scraping from document...');
-	var newItem = new Zotero.Item(ids2itemType(ids));
+	var newItem = new Zotero.Item(ids.toItemtype());
+	newItem.extra = newItem.extra ? newItem.extra : '';
 	let labels = new Labels(doc, 'div.doc span.rowtit, #content p, .summary li');
 
 	/* title */
@@ -635,17 +628,19 @@ async function scrapeDoc(doc, ids, itemKey) {
 		// Do not use comma separated collectors, as there may be duplicate code that is difficult to filter
 		Array.from(doc.querySelectorAll('#authorpart span'))
 			// Clear footnote labels for author names
-			.map(element => element.textContent.trim().replace(/[0-9,]/g, '')),
+			.map(element => element.textContent.trim().replace(/[0-9,;，；]/g, '')),
 		Array.from(doc.querySelectorAll('#authorpart a'))
-			.map(element => element.textContent.trim().replace(/[0-9,]/g, '')),
-		Array.from(doc.querySelectorAll('a[href*="sfield=au"]'))
-			.map(element => element.textContent.trim().replace(/[0-9,]/g, '')),
+			.map(element => element.textContent.trim().replace(/[0-9,;，；]/g, '')),
 		// For oversea CNKI.
 		text(doc, '.brief h3').split(/[,.，；\d]\s*/).filter(element => element),
-		labels.getWith(['起草单位', '主编单位']).split(/[,;，；]\s*/),
+		labels.getWith(['起草单位', '主编单位', '作者']).split(/[,;，；]\s*/),
 		// standard
 	].find(element => element.length);
 	newItem.creators = creators.map(element => ZU.cleanAuthor(element, 'author'));
+	let mentor = labels.getWith('导师').split(/[,.，；\d]\s*/);
+	if (mentor.length) {
+		mentor.forEach(element => newItem.creators.push(ZU.cleanAuthor(element, 'contributor')));
+	}
 
 	/* publication information */
 	let pubInfo = innerText(doc, 'div.top-tip')
@@ -660,10 +655,6 @@ async function scrapeDoc(doc, ids, itemKey) {
 	newItem.issue = tryMatch(pubInfo, /\(0?(\d+)\)/, 1) || tryMatch(pubInfo, /0?(\d+)期/, 1);
 	newItem.university = tryMatch(pubInfo, /.*?(大学|university|school)/i);
 	newItem.thesisType = tryMatch(pubInfo, /(硕士|博士)/);
-	let mentor = labels.getWith('导师').replace(/[,;，；\s]*$/, '');
-	if (mentor) {
-		newItem.creators.push(ZU.cleanAuthor(mentor, 'contributor'));
-	}
 	newItem.ISBN = labels.getWith('ISBN');
 
 	/* else fields */
@@ -682,10 +673,6 @@ function fixItem(newItem, doc, ids, itemKey) {
 			delete newItem.callNumber;
 			break;
 		case 'thesis':
-			// newItem.creators.forEach((element) => {
-			// 	element.creatorType = 'contributor';
-			// });
-			// newItem.creators[1].creatorType = 'Author';
 			break;
 		case 'patent':
 			newItem.place = labels.getWith('地址');
@@ -742,9 +729,12 @@ function fixItem(newItem, doc, ids, itemKey) {
 		newItem.date = tryMatch(innerText(doc, '.head-time, .head-tag'), /：([\d-]*)/, 1);
 	}
 
+	newItem.language = ids.toBoolean();
+
 	if (newItem.pages) {
 		newItem.pages = newItem.pages.replace(/0*([1-9]\d*)/g, '$1');
 	}
+	
 
 	/* tags */
 	let tags = Array.from(doc.querySelectorAll('div.doc p.keywords a, #ChDivKeyWord > a'))
@@ -1012,8 +1002,8 @@ var testCases = [
 				"url": "https://kns.cnki.net/KCMS/detail/detail.aspx?dbcode=CMFD&dbname=CMFD201701&filename=1017045605.nh&v=MDc3ODZPZVorVnZGQ3ZrV3JyT1ZGMjZHYk84RzlmTXFwRWJQSVI4ZVgxTHV4WVM3RGgxVDNxVHJXTTFGckNVUkw=",
 				"attachments": [
 					{
-						"title": "Full Text PDF",
-						"mimeType": "application/pdf"
+						"title": "Full Text CAJ",
+						"mimeType": "application/caj"
 					}
 				],
 				"tags": [
@@ -1050,9 +1040,10 @@ var testCases = [
 						"fieldMode": 1
 					}
 				],
-				"date": "1990",
+				"date": "1990-10",
 				"abstractNote": "<正>辽西区的范围从大兴安岭南缘到渤海北岸,西起燕山西段,东止辽河平原,基本上包括内蒙古的赤峰市(原昭乌达盟)、哲里木盟西半部,辽宁省西部和河北省的承德、唐山、廊坊及其邻近的北京、天津等地区。这一地区的古人类遗存自旧石器时代晚期起,就与同属东北的辽东区有着明显的不同,在后来的发展中,构成自具特色的一个考古学文化区,对我国东北部起过不可忽视的作用。以下就辽西地区新石器时代的考古学文化序列、编年、谱系及有关问题简要地谈一下自己的认识。",
 				"archiveLocation": "CNKI",
+				"conferenceName": "内蒙古东部地区考古学术研讨会",
 				"libraryCatalog": "CNKI",
 				"pages": "6",
 				"place": "中国内蒙古赤峰",
@@ -1060,45 +1051,11 @@ var testCases = [
 				"url": "https://kns.cnki.net/KCMS/detail/detail.aspx?dbcode=CPFD&dbname=CPFD9908&filename=OYDD199010001004&v=MDI5NTRITnI0OUZaZXNQQ0JOS3VoZGhuajk4VG5qcXF4ZEVlTU9VS3JpZlplWnZGeW5tVTdqSkpWb1RLalRQYXJLeEY5",
 				"attachments": [
 					{
-						"title": "Full Text PDF",
-						"mimeType": "application/pdf"
+						"title": "Full Text CAJ",
+						"mimeType": "application/caj"
 					}
 				],
-				"tags": [
-					{
-						"tag": "兴隆洼文化"
-					},
-					{
-						"tag": "努鲁儿虎山"
-					},
-					{
-						"tag": "半坡文化"
-					},
-					{
-						"tag": "夹砂陶"
-					},
-					{
-						"tag": "富河文化"
-					},
-					{
-						"tag": "小河沿文化"
-					},
-					{
-						"tag": "庙底沟文化"
-					},
-					{
-						"tag": "彩陶花纹"
-					},
-					{
-						"tag": "文化纵横"
-					},
-					{
-						"tag": "新石器时代考古"
-					},
-					{
-						"tag": "红山文化"
-					}
-				],
+				"tags": [],
 				"notes": [],
 				"seeAlso": []
 			}
@@ -1148,8 +1105,8 @@ var testCases = [
 				"volume": "49",
 				"attachments": [
 					{
-						"title": "Full Text PDF",
-						"mimeType": "application/pdf"
+						"title": "Full Text CAJ",
+						"mimeType": "application/caj"
 					}
 				],
 				"tags": [
@@ -1167,274 +1124,6 @@ var testCases = [
 					},
 					{
 						"tag": "阿尔茨海默病"
-					}
-				],
-				"notes": [],
-				"seeAlso": []
-			}
-		]
-	},
-	{
-		"type": "web",
-		"url": "https://kns.cnki.net/kcms2/article/abstract?v=xNq_RSSxttteWi24laindD_Rj8W4Qc8zBVUH7S-kB3QzbsnSxv7JK2GdFzXlM8uKnXjC3JSVVS0rjTApf3TFAG95ch3e_C55Sw9_OvZ1DPp-aH68S8lEFWlBDz7Blb1-3rCFg7Ww345NFlWs3qF4wD78_fGzs0XGw6lD-7rBgHQ=&uniplatform=NZKPT&language=CHS",
-		"items": [
-			{
-				"itemType": "conferencePaper",
-				"title": "转录组学和毒力基因调控揭示了异硫氰酸苄酯对金黄色葡萄球菌的抗菌机制",
-				"creators": [
-					{
-						"firstName": "",
-						"lastName": "刘佳楠",
-						"creatorType": "author",
-						"fieldMode": 1
-					},
-					{
-						"firstName": "",
-						"lastName": "侯红漫",
-						"creatorType": "author",
-						"fieldMode": 1
-					},
-					{
-						"firstName": "",
-						"lastName": "张公亮",
-						"creatorType": "author",
-						"fieldMode": 1
-					}
-				],
-				"date": "2023",
-				"DOI": "10.26914/c.cnkihy.2023.044794",
-				"abstractNote": "金黄色葡萄球菌是一种常见的病原体,可引起多种严重感染。因此,需要高效实用的技术来对抗金黄色葡萄球菌。本研究利用转录组学评估了金黄色葡萄球菌在使用异硫氰酸苄酯(BITC)处理后的变化,以确定其抗菌作用。结果显示,与对照组相比,1/8 MIC BITC处理组有92个差异表达基因,其中42个基因下调。此外,我们还利用STRING分析揭示了34个基因编码的蛋白质相互作用。然后,我们通过qRT-PCR验证了三个重要的毒力基因,包括胶囊多糖合成酶(cp8F)、胶囊多糖生物合成蛋白(cp5D)和热核酸酶(nuc)。此外,还进行了分子对接分析,以研究BITC与cp8F、cp5D和nuc的编码蛋白的作用位点。结果表明,BITC与所选蛋白质的对接分数在-6.00至-6.60kcal/mol之间,证实了这些复合物的稳定性。BITC与这些蛋白质的氨基酸TRP (130)、GLY (10)、ILE (406)、LYS (368)、TYR (192)和ARG (114)形成疏水、氢键、π-π共轭相互作用。这些发现将有助于今后研究BITC对金黄色葡萄球菌的抗菌机制。",
-				"archiveLocation": "CNKI",
-				"libraryCatalog": "CNKI",
-				"pages": "2",
-				"place": "中国湖南长沙",
-				"proceedingsTitle": "中国食品科学技术学会第二十届年会",
-				"url": "https://kns.cnki.net/KCMS/detail/detail.aspx?dbcode=CPFD&dbname=CPFDTEMP&filename=ZGSP202310001012&v=",
-				"attachments": [
-					{
-						"title": "Full Text PDF",
-						"mimeType": "application/pdf"
-					}
-				],
-				"tags": [
-					{
-						"tag": "下调"
-					},
-					{
-						"tag": "异硫氰酸苄酯"
-					},
-					{
-						"tag": "毒力基因"
-					},
-					{
-						"tag": "转录组学"
-					},
-					{
-						"tag": "金黄色葡萄球菌"
-					}
-				],
-				"notes": [],
-				"seeAlso": []
-			}
-		]
-	},
-	{
-		"type": "web",
-		"url": "https://kns.cnki.net/kcms2/article/abstract?v=xNq_RSSxttsA_W-tUYyezhhnNBiP3QvBRKpUZn5bnDbp-R-W30GzHvKGqQHzyXqr74thvQKnTSNk8tRq073D8-8itn0ZqpitZQuvUp1NKfe3-NqlObLOB3kMpqq_F9Yqm9IgtojbqTNFKF0iTw5LNgbmOP_enTcFJ9QlO_PwIgs=&uniplatform=NZKPT&language=CHS",
-		"items": [
-			{
-				"itemType": "newspaperArticle",
-				"title": "灭绝物种RNA首次分离测序",
-				"creators": [
-					{
-						"firstName": "",
-						"lastName": "刘霞",
-						"creatorType": "author",
-						"fieldMode": 1
-					}
-				],
-				"date": "2023-09-21",
-				"archiveLocation": "CNKI",
-				"libraryCatalog": "CNKI",
-				"pages": "004",
-				"publicationTitle": "科技日报",
-				"url": "https://kns.cnki.net/KCMS/detail/detail.aspx?dbcode=CCND&dbname=CCNDLAST2023&filename=KJRB202309210044&v=",
-				"attachments": [
-					{
-						"title": "Full Text PDF",
-						"mimeType": "application/pdf"
-					}
-				],
-				"tags": [],
-				"notes": [],
-				"seeAlso": []
-			}
-		]
-	},
-	{
-		"type": "web",
-		"url": "https://t.cnki.net/kcms/article/abstract?v=xNq_RSSxtttXhP9SP69wMjwcwnSNtz7xbvO0_2Ai5cAwr_ND2iars2pGW3KdmtkLjJ-0-Gtv1odozNwDqpFk0E1STZw5eW-MucmrF2C2xy9jKgvYle59nPCj0k5endRrlj7vYbRfbiw=&uniplatform=NZKPT",
-		"items": [
-			{
-				"itemType": "journalArticle",
-				"title": "压型钢板-聚氨酯夹芯楼板受弯性能研究",
-				"creators": [
-					{
-						"firstName": "",
-						"lastName": "王腾",
-						"creatorType": "author",
-						"fieldMode": 1
-					},
-					{
-						"firstName": "",
-						"lastName": "冯会康",
-						"creatorType": "author",
-						"fieldMode": 1
-					},
-					{
-						"firstName": "",
-						"lastName": "乔文涛",
-						"creatorType": "author",
-						"fieldMode": 1
-					},
-					{
-						"firstName": "",
-						"lastName": "苏佶智",
-						"creatorType": "author",
-						"fieldMode": 1
-					},
-					{
-						"firstName": "",
-						"lastName": "王丽欢",
-						"creatorType": "author",
-						"fieldMode": 1
-					}
-				],
-				"date": "2022",
-				"DOI": "10.13206/j.gjgS22031502",
-				"abstractNote": "金属面夹芯板以其保温绝热、降噪、自重轻和装配效率高等优点在围护结构中得到了很好的应用，基于金属面夹芯板的构造，提出一种新型的压型钢板与聚氨酯组合的夹芯楼板结构。为了研究压型钢板-聚氨酯夹芯楼板的受弯性能，对夹芯楼板试件进行了两点对称静载试验。在试验的基础上，提出并验证了夹芯楼板有限元模型，并对槽钢楼板厚度、压型钢板厚度和聚氨酯密度等进行了参数分析。研究结果表明：夹芯楼板的破坏形式主要表现为挠度过大，最大挠度达到了板跨度的1/42,并且跨中截面处的槽钢出现畸变屈曲；夹芯楼板受弯变形后，槽钢首先达到屈服状态，而受压钢板的材料性能未能得到充分发挥；新型压型钢板聚氨酯夹芯楼板相比传统金属面夹芯板的承载能力和刚度有明显提升，承载力和刚度均提高203%;楼板厚度和压型钢板厚度对夹芯楼板的承载能力和刚度均具有显著影响，而楼板厚度相比压型钢板厚度对刚度的影响效果更明显，当楼板厚度从120 mm增大到160 mm时，夹芯楼板的承载力在正常使用状态下提高87%,在承载能力极限状态下提高63%,刚度提高88%,钢板厚度由1 mm增至3 mm时，夹芯楼板的承载力在正常使用状态下提高59%,在承载能力极限状态下提高84%,刚度提高61%;聚氨酯泡沫密度的变化对夹芯楼板的承载能力和刚度影响较小，当密度从45 kg/m~3变化到90 kg/m~3时，正常使用状态下夹芯楼板的承载力增幅为12%,承载能力极限状态下的承载力增幅仅为2%,刚度增幅为12%。",
-				"archiveLocation": "CNKI",
-				"issue": "8",
-				"libraryCatalog": "CNKI",
-				"pages": "9-16",
-				"publicationTitle": "钢结构(中英文)",
-				"url": "https://kns.cnki.net/KCMS/detail/detail.aspx?dbcode=CJFD&dbname=CJFDLAST2022&filename=GJIG202208002&v=",
-				"volume": "37",
-				"attachments": [
-					{
-						"title": "Full Text PDF",
-						"mimeType": "application/pdf"
-					}
-				],
-				"tags": [
-					{
-						"tag": "压型钢板"
-					},
-					{
-						"tag": "受弯性能"
-					},
-					{
-						"tag": "夹芯楼板"
-					},
-					{
-						"tag": "有限元分析"
-					},
-					{
-						"tag": "静载试验"
-					}
-				],
-				"notes": [],
-				"seeAlso": []
-			}
-		]
-	},
-	{
-		"type": "web",
-		"url": "https://kns.cnki.net/kcms2/article/abstract?v=xNq_RSSxtttpjjkPEffliNyrYFH4Wi7en9sqDOHy51yDErmntFADDrvK3ezFuQytYDBnNnqFo3j-pxGjfzTRsifLLcygCs5U3Pe2is0dqwiI3zVanIlYVqz_hsv4_RzQ74tYtpY5Thg7TPoDUwKtog==&uniplatform=NZKPT&language=CHS",
-		"items": [
-			{
-				"itemType": "standard",
-				"title": "粮油检验　小麦粉膨胀势的测定",
-				"creators": [
-					{
-						"firstName": "",
-						"lastName": "国家粮食局科学研究院",
-						"creatorType": "author",
-						"fieldMode": 1
-					},
-					{
-						"firstName": "",
-						"lastName": "农业部谷物品质监督检验测试中心",
-						"creatorType": "author",
-						"fieldMode": 1
-					},
-					{
-						"firstName": "",
-						"lastName": "山东省粮油检测中心",
-						"creatorType": "author",
-						"fieldMode": 1
-					},
-					{
-						"firstName": "",
-						"lastName": "河北省粮油质量检测中心",
-						"creatorType": "author",
-						"fieldMode": 1
-					},
-					{
-						"firstName": "",
-						"lastName": "德州粮食质量检验(中心)站",
-						"creatorType": "author",
-						"fieldMode": 1
-					},
-					{
-						"firstName": "",
-						"lastName": "云南省粮油产品质量监督检验测试中心",
-						"creatorType": "author",
-						"fieldMode": 1
-					},
-					{
-						"firstName": "",
-						"lastName": "宁夏粮油产品质量检测中心",
-						"creatorType": "author",
-						"fieldMode": 1
-					},
-					{
-						"firstName": "",
-						"lastName": "武汉市粮油食品中心检验站",
-						"creatorType": "author",
-						"fieldMode": 1
-					},
-					{
-						"firstName": "",
-						"lastName": "苏州市粮油质量监测所",
-						"creatorType": "author",
-						"fieldMode": 1
-					},
-					{
-						"firstName": "",
-						"lastName": "河南工业大学",
-						"creatorType": "author",
-						"fieldMode": 1
-					}
-				],
-				"date": "2019-05-10",
-				"archiveLocation": "CNKI",
-				"committee": "全国粮油标准化技术委员会(SAC/TC 270)",
-				"libraryCatalog": "67_040 食品技术-食品综合",
-				"number": "GB/T 37510-2019",
-				"publisher": "国家市场监督管理总局, 中国国家标准化管理委员会",
-				"type": "国家标准",
-				"url": "https://kns.cnki.net/kcms2/article/abstract?v=xNq_RSSxtttpjjkPEffliNyrYFH4Wi7en9sqDOHy51yDErmntFADDrvK3ezFuQytYDBnNnqFo3j-pxGjfzTRsifLLcygCs5U3Pe2is0dqwiI3zVanIlYVqz_hsv4_RzQ74tYtpY5Thg7TPoDUwKtog==&uniplatform=NZKPT&language=CHS",
-				"attachments": [
-					{
-						"title": "Full Text CAJ",
-						"mimeType": "application/caj",
-						"url": ""
-					}
-				],
-				"tags": [
-					{
-						"tag": "粮油检验"
 					}
 				],
 				"notes": [],
@@ -1627,6 +1316,7 @@ var testCases = [
 				"date": "2014",
 				"abstractNote": "第5代移动通信系统(5G)是面向2020年之后的新一代移动通信系统,其技术发展尚处于探索阶段.结合国内外移动通信发展的最新趋势,本文对5G移动通信发展的基本需求、技术特点与可能发展途径进行了展望,并分无线传输和无线网络两个部分,重点论述了富有发展前景的7项5G移动通信关键技术,包括大规模天线阵列、基于滤波器组的多载波技术、全双工复用、超密集网络、自组织网络、软件定义网络及内容分发网络.本文还概括性地介绍了国内5G移动通信的相关研发活动及其近期发展目标.",
 				"issue": "5",
+				"language": true,
 				"libraryCatalog": "CNKI",
 				"publicationTitle": "中国科学:信息科学",
 				"url": "https://inds.cnki.net/kcms/detail?dbcode=&dbname=DKCTLKCJFD2014&filename=PZKX201405001&pcode=DKCT&zylx=",
@@ -1664,7 +1354,6 @@ var testCases = [
 	{
 		"type": "web",
 		"url": "https://inds.cnki.net/kcms/detail?dbcode=&dbname=DKCTLKCMFDTEMP&filename=1023734733.nh&pcode=DKCT&zylx=",
-		"detectedItemType": "journalArticle",
 		"items": [
 			{
 				"itemType": "thesis",
@@ -1673,26 +1362,28 @@ var testCases = [
 					{
 						"firstName": "",
 						"lastName": "吕智博",
+						"creatorType": "author",
+						"fieldMode": 1
+					},
+					{
+						"firstName": "",
+						"lastName": "迟子芳",
 						"creatorType": "contributor",
 						"fieldMode": 1
 					},
 					{
 						"firstName": "",
-						"lastName": "迟子芳；",
-						"creatorType": "Author",
-						"fieldMode": 1
-					},
-					{
-						"firstName": "",
-						"lastName": "李怀；",
+						"lastName": "李怀",
 						"creatorType": "contributor",
 						"fieldMode": 1
 					}
 				],
 				"date": "2023",
 				"abstractNote": "含铜废水污染广泛、毒性大,已严重威胁生态环境和人体健康。吸附法是一种常见的金属铜去除方法,通过物理化学吸附作用广泛应用于富集和分离金属铜。由于环境介质中污染情况复杂,环境污染风险高,因此需要一种针对于目标离子高效去除及选择性识别能力的技术。表面离子印迹技术通过选择合适的功能单体、交联剂及基底材料制备针对于目标离子形成特异性识别位点的材料,具有较高的选择性。本文以氧化石墨烯（GO）为印迹母体材料、四氧化三铁（Fe3O4/M）为磁性组分,二价铜离子（Cu（Ⅱ））作为模版离子,经过有机-无机杂化功能单体ATPES（硅烷偶联剂350）-MAA（甲基丙烯酸）,以及交联剂二甲基丙烯酸乙二醇酯（EGDMA）结合作用,成功制备了高效选择去除铜离子的铜离子表面印迹聚合物（MS/MGO-Cu-iip）。为确定该材料的最佳合成及反应条件,本文通过功能单体喂料比,动力学,热力学分析等进行探究。此外,在印迹材料循环吸附重金属五次后,吸附剂吸附能力下降,对于废弃物处理需要一种经济、高效的手段来有效利用印迹材料。本文制备的铜离子印迹材料不但解决了污水中铜污染的问题,并且将铜离子印迹材料作为一种高效的催化剂活性成分,直接加间接催化降解四环素,大大提高了材料回收利用及环保的经济价值。针对于将MS/MGO-Cu-iip磁性回收并将其作为非均相催化剂结合氧气催化降解四环素（TC）是本研究的亮点,本文主要结论如下:（1）硅烷偶联剂（APTES）和甲基丙烯酸（MAA）的喂料比是材料吸附性能效果的重要因素。最佳合成条件为:APTES 14 m L、MAA 51 m L、Cu（Ⅱ）8 mmol、MGO 0.5 g。探究了Zn（Ⅱ）、Pb（Ⅱ）、Cd（Ⅱ）和Ni（Ⅱ）作为Cu（Ⅱ）的对比离子进行竞争的影响。结果表明,影响吸附容量的因素为金属离子的水合离子半径,并且在双元体系中,MS/MGO-Cu-iip对Cu（II）吸附容量有所下降,但下降效果有限。MS/MGO-Cu-iip对铜离子具有较高的选择性吸附效果。（2）通过扫描电镜（SEM）、磁敏性分析（VSM）、比表面积,孔径分析（BET）、X射线晶体衍射表征分析（XRD）对MS/MGO-Cu-iip进行表征分析。结果表明:反应前MS/MGO-Cu-iip材料表面呈不规则且具有丰富印迹空穴结构,反应后印迹空穴成功捕获铜离子,致使吸附位点充分填充;与磁性氧化石墨烯（MGO）相比,印迹材料的制备导致MS/MGO-Cu-iip比饱和磁场强度在一定程度上减弱,但材料仍为超顺磁性。两者的饱和磁化强度分别为42.2 emu/g和57.3 emu/g。BET分析表明,表面印迹材料为介孔材料,MGO与MS/MGO-Cu-iip的比表面积分别为88.54 m2/g和155.55 m2/g;Fe3O4成功结合在GO之上,且交联过程没有改变材料的基本结构。MS/MGO-Cu-iip在5次循环使用后,可用反应位点不断减少,其对Cu（Ⅱ）吸附性能逐步下降到80%以下。（3）为了使循环后的印迹材料“变废为宝”。针对MS/MGO-Cu-iip作为非均相催化剂高效利用,进行四环素（TC）的催化降解。结果表明,在不同材料投加量和TC初始投加量下,MS/MGO-Cu-iip活化活性氧物质（ROS）对TC的去除效果均好于单独使用GO或MGO。值得注意的是,由于铜离子的介入,致使非均相催化剂相较于传统芬顿反应,在中性条件下也具有良好的TC去除效果。在自由基淬灭试验中,O2·-为TC去除反应的主要活性自由基。此外,依据通氮气和脱附试验计算,TC对MS/MGO-Cu-iip的吸附率和降解率分别为30.98%和63.10%。其中,MS/MGO-Cu-iip对TC的直接降解率和间接降解率分别为45.93%和17.17%。",
+				"language": true,
 				"libraryCatalog": "CNKI",
-				"university": "硕士",
+				"thesisType": "硕士",
+				"university": "吉林大学",
 				"url": "https://inds.cnki.net/kcms/detail?dbcode=&dbname=DKCTLKCMFDTEMP&filename=1023734733.nh&pcode=DKCT&zylx=",
 				"attachments": [
 					{
@@ -1732,6 +1423,319 @@ var testCases = [
 						"tag": "非均相催化剂"
 					}
 				],
+				"notes": [],
+				"seeAlso": []
+			}
+		]
+	},
+	{
+		"type": "web",
+		"url": "https://kns.cnki.net/kcms2/article/abstract?v=z-q19lQZUWE6hE7Gpq4L7kTFhx1kXjMPjzuvaOf_Kd9uSncevOzcEY-k457tQta7N5KdMtx0-30kzYpYxONPjBmWUD2YXAKS8NQe4H4gNnYGxsoNZWBK-bXHugziqxEV7vSvh5f2bhUxt4-RL4Perlfw84hNWYTo9G1m-YLlGqU=&uniplatform=NZKPT&language=CHS",
+		"items": [
+			{
+				"itemType": "conferencePaper",
+				"title": "转录组学和毒力基因调控揭示了异硫氰酸苄酯对金黄色葡萄球菌的抗菌机制",
+				"creators": [
+					{
+						"firstName": "",
+						"lastName": "刘佳楠",
+						"creatorType": "author",
+						"fieldMode": 1
+					},
+					{
+						"firstName": "",
+						"lastName": "侯红漫",
+						"creatorType": "author",
+						"fieldMode": 1
+					},
+					{
+						"firstName": "",
+						"lastName": "张公亮",
+						"creatorType": "author",
+						"fieldMode": 1
+					}
+				],
+				"date": "2023-10-24",
+				"DOI": "10.26914/c.cnkihy.2023.044794",
+				"abstractNote": "金黄色葡萄球菌是一种常见的病原体,可引起多种严重感染。因此,需要高效实用的技术来对抗金黄色葡萄球菌。本研究利用转录组学评估了金黄色葡萄球菌在使用异硫氰酸苄酯(BITC)处理后的变化,以确定其抗菌作用。结果显示,与对照组相比,1/8 MIC BITC处理组有92个差异表达基因,其中42个基因下调。此外,我们还利用STRING分析揭示了34个基因编码的蛋白质相互作用。然后,我们通过qRT-PCR验证了三个重要的毒力基因,包括胶囊多糖合成酶(cp8F)、胶囊多糖生物合成蛋白(cp5D)和热核酸酶(nuc)。此外,还进行了分子对接分析,以研究BITC与cp8F、cp5D和nuc的编码蛋白的作用位点。结果表明,BITC与所选蛋白质的对接分数在-6.00至-6.60kcal/mol之间,证实了这些复合物的稳定性。BITC与这些蛋白质的氨基酸TRP (130)、GLY (10)、ILE (406)、LYS (368)、TYR (192)和ARG (114)形成疏水、氢键、π-π共轭相互作用。这些发现将有助于今后研究BITC对金黄色葡萄球菌的抗菌机制。",
+				"archiveLocation": "CNKI",
+				"conferenceName": "中国食品科学技术学会第二十届年会",
+				"libraryCatalog": "CNKI",
+				"pages": "2",
+				"place": "中国湖南长沙",
+				"proceedingsTitle": "中国食品科学技术学会第二十届年会",
+				"url": "https://kns.cnki.net/kcms2/article/abstract?v=z-q19lQZUWE6hE7Gpq4L7kTFhx1kXjMPjzuvaOf_Kd9uSncevOzcEY-k457tQta7N5KdMtx0-30kzYpYxONPjBmWUD2YXAKS8NQe4H4gNnYGxsoNZWBK-bXHugziqxEV7vSvh5f2bhUxt4-RL4Perlfw84hNWYTo9G1m-YLlGqU=&uniplatform=NZKPT&language=CHS",
+				"attachments": [
+					{
+						"title": "Full Text CAJ",
+						"mimeType": "application/caj"
+					}
+				],
+				"tags": [
+					{
+						"tag": "下调"
+					},
+					{
+						"tag": "异硫氰酸苄酯"
+					},
+					{
+						"tag": "毒力基因"
+					},
+					{
+						"tag": "转录组学"
+					},
+					{
+						"tag": "金黄色葡萄球菌"
+					}
+				],
+				"notes": [],
+				"seeAlso": []
+			}
+		]
+	},
+	{
+		"type": "web",
+		"url": "https://kns.cnki.net/kcms2/article/abstract?v=z-q19lQZUWEkYD96r0fZn8xJClatpdZ_9CoDzRS-DDyBvDjsXm1TOW1RcWNSpkDRk8ypnS1I8oSbJ8tUrQxxossTM-jDVPCLB1h37VHv7-r33IUd2v_O2Hk9hZu0EpR8XDssRGxGQeQ52juhUQVLvFCFkr6GBiUUvPr3ox7oxyM=&uniplatform=NZKPT&language=CHS",
+		"items": [
+			{
+				"itemType": "newspaperArticle",
+				"title": "灭绝物种RNA首次分离测序",
+				"creators": [
+					{
+						"firstName": "",
+						"lastName": "刘霞",
+						"creatorType": "author",
+						"fieldMode": 1
+					}
+				],
+				"date": "2023-09-21",
+				"abstractNote": "科技日报北京9月20日电 （记者刘霞）瑞典国家分子生物科学中心科学家首次分离和测序了一个已灭绝物种的RNA分子，从而重建了该灭绝物种（塔斯马尼亚虎）的皮肤和骨骼肌转录组。该项成果对复活塔斯马尼亚虎和毛猛犸象等灭绝物种，以及研究如新冠病毒等RNA病毒具有重要意义。相......",
+				"archiveLocation": "CNKI",
+				"callNumber": "11-0315",
+				"libraryCatalog": "CNKI",
+				"pages": "4",
+				"publicationTitle": "科技日报",
+				"url": "https://kns.cnki.net/kcms2/article/abstract?v=z-q19lQZUWEkYD96r0fZn8xJClatpdZ_9CoDzRS-DDyBvDjsXm1TOW1RcWNSpkDRk8ypnS1I8oSbJ8tUrQxxossTM-jDVPCLB1h37VHv7-r33IUd2v_O2Hk9hZu0EpR8XDssRGxGQeQ52juhUQVLvFCFkr6GBiUUvPr3ox7oxyM=&uniplatform=NZKPT&language=CHS",
+				"attachments": [
+					{
+						"title": "Full Text CAJ",
+						"mimeType": "application/caj"
+					}
+				],
+				"tags": [
+					{
+						"tag": "RNA"
+					},
+					{
+						"tag": "转录组"
+					}
+				],
+				"notes": [],
+				"seeAlso": []
+			}
+		]
+	},
+	{
+		"type": "web",
+		"url": "https://t.cnki.net/kcms/article/abstract?v=z-q19lQZUWEWQmkcFSQlu3jSJHTsN3oiI7eN5GOlkDRYNzMtdD5vFgLE4cmgBky-uwqGlTf5qAnk77xgWfGEs3H2EKXHLagqKil231uco9cWjdgdFqdUvmk4uWsY_Z1Bu91DIlBVokQ=&uniplatform=NZKPT",
+		"items": [
+			{
+				"itemType": "journalArticle",
+				"title": "压型钢板-聚氨酯夹芯楼板受弯性能研究",
+				"creators": [
+					{
+						"firstName": "",
+						"lastName": "王腾",
+						"creatorType": "author",
+						"fieldMode": 1
+					},
+					{
+						"firstName": "",
+						"lastName": "冯会康",
+						"creatorType": "author",
+						"fieldMode": 1
+					},
+					{
+						"firstName": "",
+						"lastName": "乔文涛",
+						"creatorType": "author",
+						"fieldMode": 1
+					},
+					{
+						"firstName": "",
+						"lastName": "苏佶智",
+						"creatorType": "author",
+						"fieldMode": 1
+					},
+					{
+						"firstName": "",
+						"lastName": "王丽欢",
+						"creatorType": "author",
+						"fieldMode": 1
+					}
+				],
+				"date": "2022",
+				"DOI": "10.13206/j.gjgS22031502",
+				"abstractNote": "金属面夹芯板以其保温绝热、降噪、自重轻和装配效率高等优点在围护结构中得到了很好的应用，基于金属面夹芯板的构造，提出一种新型的压型钢板与聚氨酯组合的夹芯楼板结构。为了研究压型钢板-聚氨酯夹芯楼板的受弯性能，对夹芯楼板试件进行了两点对称静载试验。在试验的基础上，提出并验证了夹芯楼板有限元模型，并对槽钢楼板厚度、压型钢板厚度和聚氨酯密度等进行了参数分析。研究结果表明：夹芯楼板的破坏形式主要表现为挠度过大，最大挠度达到了板跨度的1/42,并且跨中截面处的槽钢出现畸变屈曲；夹芯楼板受弯变形后，槽钢首先达到屈服状态，而受压钢板的材料性能未能得到充分发挥；新型压型钢板聚氨酯夹芯楼板相比传统金属面夹芯板的承载能力和刚度有明显提升，承载力和刚度均提高203%;楼板厚度和压型钢板厚度对夹芯楼板的承载能力和刚度均具有显著影响，而楼板厚度相比压型钢板厚度对刚度的影响效果更明显，当楼板厚度从120 mm增大到160 mm时，夹芯楼板的承载力在正常使用状态下提高87%,在承载能力极限状态下提高63%,刚度提高88%,钢板厚度由1 mm增至3 mm时，夹芯楼板的承载力在正常使用状态下提高59%,在承载能力极限状态下提高84%,刚度提高61%;聚氨酯泡沫密度的变化对夹芯楼板的承载能力和刚度影响较小，当密度从45 kg/m~3变化到90 kg/m~3时，正常使用状态下夹芯楼板的承载力增幅为12%,承载能力极限状态下的承载力增幅仅为2%,刚度增幅为12%。",
+				"archiveLocation": "CNKI",
+				"issue": "8",
+				"libraryCatalog": "CNKI",
+				"pages": "9-16",
+				"publicationTitle": "钢结构(中英文)",
+				"url": "https://t.cnki.net/kcms/article/abstract?v=z-q19lQZUWEWQmkcFSQlu3jSJHTsN3oiI7eN5GOlkDRYNzMtdD5vFgLE4cmgBky-uwqGlTf5qAnk77xgWfGEs3H2EKXHLagqKil231uco9cWjdgdFqdUvmk4uWsY_Z1Bu91DIlBVokQ=&uniplatform=NZKPT",
+				"volume": "37",
+				"attachments": [
+					{
+						"title": "Full Text CAJ",
+						"mimeType": "application/caj"
+					}
+				],
+				"tags": [
+					{
+						"tag": "压型钢板"
+					},
+					{
+						"tag": "受弯性能"
+					},
+					{
+						"tag": "夹芯楼板"
+					},
+					{
+						"tag": "有限元分析"
+					},
+					{
+						"tag": "静载试验"
+					}
+				],
+				"notes": [],
+				"seeAlso": []
+			}
+		]
+	},
+	{
+		"type": "web",
+		"url": "https://kns.cnki.net/kcms2/article/abstract?v=z-q19lQZUWFpFdOhy6G3TBURSp85CRAZznMvqojBb2BMEZKqL2olt9RNQt3Skeq0e1ZD7VCCMwFtKC_Q0FBZZsOcAoSWZl30xw_i_6GjulabD1IyMTCDOJ0MJDBkfO6F6NEdr14bznFmpR-T7-SC3A==&uniplatform=NZKPT&language=CHS",
+		"items": [
+			{
+				"itemType": "standard",
+				"title": "粮油检验　小麦粉膨胀势的测定",
+				"creators": [
+					{
+						"firstName": "",
+						"lastName": "国家粮食局科学研究院",
+						"creatorType": "author",
+						"fieldMode": 1
+					},
+					{
+						"firstName": "",
+						"lastName": "农业部谷物品质监督检验测试中心",
+						"creatorType": "author",
+						"fieldMode": 1
+					},
+					{
+						"firstName": "",
+						"lastName": "山东省粮油检测中心",
+						"creatorType": "author",
+						"fieldMode": 1
+					},
+					{
+						"firstName": "",
+						"lastName": "河北省粮油质量检测中心",
+						"creatorType": "author",
+						"fieldMode": 1
+					},
+					{
+						"firstName": "",
+						"lastName": "德州粮食质量检验(中心)站",
+						"creatorType": "author",
+						"fieldMode": 1
+					},
+					{
+						"firstName": "",
+						"lastName": "云南省粮油产品质量监督检验测试中心",
+						"creatorType": "author",
+						"fieldMode": 1
+					},
+					{
+						"firstName": "",
+						"lastName": "宁夏粮油产品质量检测中心",
+						"creatorType": "author",
+						"fieldMode": 1
+					},
+					{
+						"firstName": "",
+						"lastName": "武汉市粮油食品中心检验站",
+						"creatorType": "author",
+						"fieldMode": 1
+					},
+					{
+						"firstName": "",
+						"lastName": "苏州市粮油质量监测所",
+						"creatorType": "author",
+						"fieldMode": 1
+					},
+					{
+						"firstName": "",
+						"lastName": "河南工业大学",
+						"creatorType": "author",
+						"fieldMode": 1
+					}
+				],
+				"date": "2019-05-10",
+				"archiveLocation": "CNKI",
+				"committee": "全国粮油标准化技术委员会(SAC/TC 270)",
+				"libraryCatalog": "67_040 食品技术-食品综合",
+				"number": "GB/T 37510-2019",
+				"publisher": "国家市场监督管理总局, 中国国家标准化管理委员会",
+				"status": "现行",
+				"type": "国家标准",
+				"url": "https://kns.cnki.net/kcms2/article/abstract?v=z-q19lQZUWFpFdOhy6G3TBURSp85CRAZznMvqojBb2BMEZKqL2olt9RNQt3Skeq0e1ZD7VCCMwFtKC_Q0FBZZsOcAoSWZl30xw_i_6GjulabD1IyMTCDOJ0MJDBkfO6F6NEdr14bznFmpR-T7-SC3A==&uniplatform=NZKPT&language=CHS",
+				"attachments": [
+					{
+						"title": "Full Text CAJ",
+						"mimeType": "application/caj",
+						"url": ""
+					}
+				],
+				"tags": [],
+				"notes": [],
+				"seeAlso": []
+			}
+		]
+	},
+	{
+		"type": "web",
+		"url": "https://kns.cnki.net/kcms2/article/abstract?v=z-q19lQZUWHKwtbssKP1NCvaTen75BAt1H4hllXU6PeIwHvFUpn7OEevEgfhBdBoGIzXGsK9cklpvaeRdS2vmTL-5OMnipsdXEYqZM1l5mkIQVOeEOeeasa7QrP9ssiDf2c6jwKg-4NuosyfYBPL_bNqRxz-xpF4TUp2f9NNass=&uniplatform=NZKPT&language=CHS",
+		"items": [
+			{
+				"itemType": "book",
+				"title": "Digital Labour Markets in Central and Eastern European Countries:COVID-19 and the Future of Work",
+				"creators": [
+					{
+						"firstName": "Beata Woźniak",
+						"lastName": "Jęchorek",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Kamilla Marchewka",
+						"lastName": "Bartkowiak",
+						"creatorType": "author"
+					}
+				],
+				"ISBN": "9781003326779",
+				"extra": "titleTranslation:",
+				"language": true,
+				"libraryCatalog": "CNKI",
+				"shortTitle": "Digital Labour Markets in Central and Eastern European Countries",
+				"url": "https://kns.cnki.net/kcms2/article/abstract?v=z-q19lQZUWHKwtbssKP1NCvaTen75BAt1H4hllXU6PeIwHvFUpn7OEevEgfhBdBoGIzXGsK9cklpvaeRdS2vmTL-5OMnipsdXEYqZM1l5mkIQVOeEOeeasa7QrP9ssiDf2c6jwKg-4NuosyfYBPL_bNqRxz-xpF4TUp2f9NNass=&uniplatform=NZKPT&language=CHS",
+				"attachments": [
+					{
+						"title": "Full Text CAJ",
+						"mimeType": "application/caj",
+						"url": ""
+					}
+				],
+				"tags": [],
 				"notes": [],
 				"seeAlso": []
 			}
