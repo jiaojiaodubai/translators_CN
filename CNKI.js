@@ -9,7 +9,7 @@
 	"inRepository": true,
 	"translatorType": 4,
 	"browserSupport": "gcsibv",
-	"lastUpdated": "2023-12-07 10:41:57"
+	"lastUpdated": "2023-12-07 10:56:25"
 }
 
 /*
@@ -161,7 +161,7 @@ class ID {
 // var debugMode = false;
 
 function detectWeb(doc, url) {
-	Z.debug("----------------CNKI 2023-12-07 15:55:30------------------");
+	Z.debug("----------------CNKI 2023-12-07 18:56:22------------------");
 	let ids = new ID(doc, url);
 	Z.debug('detect ids:');
 	Z.debug(ids);
@@ -337,12 +337,13 @@ async function doWeb(doc, url) {
 				In these cases, CAPTCHA issue should be handled by the user.
 				 */
 				else {
-					var debugItem = new Z.Item('webpage');
+					let debugItem = new Z.Item('webpage');
 					debugItem.title = `❌验证码错误！（CAPTCHA Erro!）❌`;
 					debugItem.url = itemKey.url;
 					debugItem.abstractNote
 						= '原始条目在批量抓取过程中遇到验证码，这通常是您向知网请求过于频繁导致的。原始条目的链接已经保存到本条目中，请考虑随后打开这个链接并重新抓取。\n'
 						+ 'Encountered CAPTCHA during batch scrape process with original item, which is usually caused by your frequent requests to CNKI. The link to original item has been saved to this entry. Please consider opening this link later and re scrap.';
+					newItem.complete();
 					continue;
 				}
 			}
