@@ -9,7 +9,7 @@
 	"inRepository": true,
 	"translatorType": 4,
 	"browserSupport": "gcsibv",
-	"lastUpdated": "2023-12-06 14:56:16"
+	"lastUpdated": "2023-12-07 07:58:10"
 }
 
 /*
@@ -41,8 +41,9 @@ var ids = {
 // var debugMode = false;
 
 function detectWeb(doc, url) {
-	Z.debug("----------------2023-12-07 05:43:47------------------");
+	Z.debug("----------------CNKI 2023-12-07 15:55:30------------------");
 	let ids = getIDFromPage(doc, url);
+	Z.debug('detect ids:');
 	Z.debug(ids);
 	const multiplePattern = [
 
@@ -90,8 +91,6 @@ function detectWeb(doc, url) {
 		Z.monitorDOMChanges(searchResult, { childList: true, subtree: true });
 	}
 	if (ids) {
-		// Z.debug('detecte id:');
-		// Z.debug(ids)
 		return ids2itemType(ids);
 	}
 	else if (url.includes('book/bookdetail')) {
@@ -582,10 +581,27 @@ async function parseRefer(referText, doc, ids, itemKey) {
 		if (newItem.type == '年鉴') {
 			newItem.itemType = 'journalArticle';
 		}
-		else if (newItem.itemType == 'statute') {
-			newItem.itemType = 'standard';
-			newItem.number = newItem.volume;
-			delete newItem.volume;
+		switch (newItem.itemType) {
+			case 'statute':
+				newItem.itemType = 'standard';
+				newItem.number = newItem.volume;
+				delete newItem.volume;
+				break;
+			case 'thesis':
+				newItem.university = newItem.publisher;
+				delete newItem.publisher;
+				if (newItem.type) {
+					newItem.thesisType = newItem.type;
+					delete newItem.type;
+				}
+				newItem.creators.forEach((element) => {
+					if (element.creatorType == 'translator') {
+						element.creatorType = 'contributor';
+					}
+				});
+				break;
+			default:
+				break;
 		}
 		newItem.ISSN = tryMatch(referText, /^%@ (.*)/, 1);
 		newItem = Object.assign(newItem, fixItem(newItem, doc, ids, itemKey));
@@ -599,7 +615,6 @@ async function scrapeDoc(doc, ids, itemKey) {
 	Z.debug('scraping from document...');
 	var newItem = new Zotero.Item(ids2itemType(ids));
 	let labels = new Labels(doc, 'div.doc span.rowtit, #content p, .summary li');
-	Z.debug(labels.innerData.map(element => element.innerText));
 
 	/* title */
 	newItem.title = getPureText(doc.querySelector('div.doc h1, .h1-scholar, #chTitle'));
@@ -627,28 +642,28 @@ async function scrapeDoc(doc, ids, itemKey) {
 			.map(element => element.textContent.trim().replace(/[0-9,]/g, '')),
 		// For oversea CNKI.
 		text(doc, '.brief h3').split(/[,.，；\d]\s*/).filter(element => element),
+		labels.getWith(['起草单位', '主编单位']).split(/[,;，；]\s*/),
 		// standard
-		labels.getWith('起草单位').split(/[,;，；]\s*/),
-		// For yearbook.
-		labels.getWith('主编单位').split(/[,;，；]\s*/)
 	].find(element => element.length);
 	newItem.creators = creators.map(element => ZU.cleanAuthor(element, 'author'));
 
 	/* publication information */
 	let pubInfo = innerText(doc, 'div.top-tip')
 		+ getPureText(doc.querySelector('.summary .detailLink'))
-		+ ZU.xpathText(doc, '//p[contains(text(), "作者基本信息")]');
+		+ labels.getWith(['作者基本信息', '出版信息']);
 	Z.debug(`puinfo:${pubInfo}`);
 	newItem.publicationTitle = tryMatch(pubInfo, /(.*?)[.,]/, 1) || labels.getWith('报纸网站');
 	newItem.date = tryMatch(pubInfo, /(\d+),/, 1)
 		|| tryMatch(pubInfo, /(\d{4})年?/, 1)
-		|| labels.getWith('发布日期')
-		|| labels.getWith('发布单位')
-		|| labels.getWith('报纸日期');
+		|| labels.getWith(['发布日期', '发布单位', '报纸日期']);
 	newItem.volume = tryMatch(pubInfo, /(\d*)\s*\(/, 1) || tryMatch(pubInfo, /0?(\d+)卷/, 1);
 	newItem.issue = tryMatch(pubInfo, /\(0?(\d+)\)/, 1) || tryMatch(pubInfo, /0?(\d+)期/, 1);
-	newItem.university = tryMatch(pubInfo, /.*(大学|university|school)/i);
+	newItem.university = tryMatch(pubInfo, /.*?(大学|university|school)/i);
 	newItem.thesisType = tryMatch(pubInfo, /(硕士|博士)/);
+	let mentor = labels.getWith('导师').replace(/[,;，；\s]*$/, '');
+	if (mentor) {
+		newItem.creators.push(ZU.cleanAuthor(mentor, 'contributor'));
+	}
 	newItem.ISBN = labels.getWith('ISBN');
 
 	/* else fields */
@@ -667,10 +682,10 @@ function fixItem(newItem, doc, ids, itemKey) {
 			delete newItem.callNumber;
 			break;
 		case 'thesis':
-			newItem.creators.forEach((element) => {
-				element.creatorType = 'contributor';
-			});
-			newItem.creators[1].creatorType = 'Author';
+			// newItem.creators.forEach((element) => {
+			// 	element.creatorType = 'contributor';
+			// });
+			// newItem.creators[1].creatorType = 'Author';
 			break;
 		case 'patent':
 			newItem.place = labels.getWith('地址');
@@ -727,7 +742,9 @@ function fixItem(newItem, doc, ids, itemKey) {
 		newItem.date = tryMatch(innerText(doc, '.head-time, .head-tag'), /：([\d-]*)/, 1);
 	}
 
-	newItem.pages = newItem.pages.replace(/0*([1-9]\d*)/g, '$1');
+	if (newItem.pages) {
+		newItem.pages = newItem.pages.replace(/0*([1-9]\d*)/g, '$1');
+	}
 
 	/* tags */
 	let tags = Array.from(doc.querySelectorAll('div.doc p.keywords a, #ChDivKeyWord > a'))
@@ -785,6 +802,7 @@ async function scrapeZhBook(doc, url, itemKey) {
 		}
 	};
 	Z.debug('scrape zh book with data:');
+	Z.debug('form dao, we get labels:');
 	Z.debug(data);
 	bookItem.edition = data.get('版次');
 	bookItem.pages = data.get('页数');
@@ -830,7 +848,8 @@ class Labels {
 	getWith(label, next = true) {
 		if (Array.isArray(label)) {
 			let result = label
-				.map(element => this.getWith(element, next));
+				.map(element => this.getWith(element, next))
+				.filter(element => element);
 			return result.length
 				? result.find(element => element)
 				: '';
