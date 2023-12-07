@@ -9,7 +9,7 @@
 	"inRepository": true,
 	"translatorType": 4,
 	"browserSupport": "gcsibv",
-	"lastUpdated": "2023-12-07 10:56:25"
+	"lastUpdated": "2023-12-07 11:22:09"
 }
 
 /*
@@ -92,7 +92,7 @@ class ID {
 			WWJD: 'journalArticle',
 			// 特色期刊 journal
 			CJFN: 'journalArticle',
-	
+
 			/* 余下journal未在页面找到，可能已经过时 */
 			CDMD: 'journalArticle',
 			CJFD: 'journalArticle',
@@ -161,7 +161,7 @@ class ID {
 // var debugMode = false;
 
 function detectWeb(doc, url) {
-	Z.debug("----------------CNKI 2023-12-07 18:56:22------------------");
+	Z.debug("----------------CNKI 2023-12-07 19:19:26------------------");
 	let ids = new ID(doc, url);
 	Z.debug('detect ids:');
 	Z.debug(ids);
@@ -315,15 +315,22 @@ async function doWeb(doc, url) {
 		for (let key in items) {
 			let itemKey = JSON.parse(key);
 			try {
+				// During debugging, may manually throw errors to guide the program to run inward
+				// throw ReferenceError;
 				let doc = await requestDocument(itemKey.url);
 				// CAPTCHA
 				if (doc.querySelector('#verify_pic')) {
+					Z.debug('Accessing single item page failed!');
 					throw new TypeError('❌打开页面过程中遇到验证码❌');
 				}
 				await scrape(doc, itemKey.url, itemKey, inMainland);
 			}
-			catch (erro) {
-				if (Object.keys(items).some(element => JSON.parse(element).cookieName)) {
+			catch (erro1) {
+				Z.debug('Attempt to use bulk export API');
+				try {
+					if (Object.keys(items).some(element => JSON.parse(element).cookieName)) {
+						throw new TypeError('This page is not suitable for using bulk export API');
+					}
 					var itemKeys = Object.keys(items)
 						.map(element => JSON.parse(element))
 						.filter(element => element.cookieName);
@@ -335,15 +342,15 @@ async function doWeb(doc, url) {
 				/*
 				Some older versions of CNKI and industry customized versions may not support retrieving CookieName from search pages.
 				In these cases, CAPTCHA issue should be handled by the user.
-				 */
-				else {
+				*/
+				catch (erro2) {
 					let debugItem = new Z.Item('webpage');
 					debugItem.title = `❌验证码错误！（CAPTCHA Erro!）❌`;
 					debugItem.url = itemKey.url;
 					debugItem.abstractNote
 						= '原始条目在批量抓取过程中遇到验证码，这通常是您向知网请求过于频繁导致的。原始条目的链接已经保存到本条目中，请考虑随后打开这个链接并重新抓取。\n'
 						+ 'Encountered CAPTCHA during batch scrape process with original item, which is usually caused by your frequent requests to CNKI. The link to original item has been saved to this entry. Please consider opening this link later and re scrap.';
-					newItem.complete();
+					debugItem.complete();
 					continue;
 				}
 			}
@@ -425,7 +432,6 @@ async function scrapeWithGetExport(doc, ids, itemKey, inMainland) {
 	 */
 
 	// During debugging, may manually throw errors to guide the program to run inward
-	// referText = false;
 	// throw ReferenceError;
 	let postUrl = inMainland
 		? 'https://kns.cnki.net/dm/API/GetExport?uniplatform=NZKPT'
@@ -477,6 +483,9 @@ async function scrapeWithShowExport(itemKeys, inMainland) {
 		},
 		body: "<ul class='literature-list'><li> %0 Journal Article<br> %A 贾玲 <br> %+ 晋中市太谷区北洸乡人民政府;<br> %T 抗旱转基因小麦的研究进展<br> %J 种子科技<br> %D 2023<br> %V 41<br>%N 17<br> %K 小麦;抗旱;转基因<br> %X 受气候复杂多变的影响，小麦生长期间干旱胁迫成为影响其产量的主要因素之一，利用基因工程技术提高小麦抗旱性非常必要。目前，已鉴定出一部分与小麦抗旱性相关并可以提高产量的基因，但与水稻、玉米和其他粮食作物相比，对抗旱转基因小麦的开发研究较少。文章重点关注小麦耐旱性的评价标准以及转基因小麦品种在提高抗旱性方面的进展，讨论了当前在转基因小麦方面取得的一些成就和发展中存在的问题，以期为小麦抗旱性基因工程育种提供理论依据。<br>%P 11-14<br> %@ 1005-2690<br> %U https: //link.cnki.net/doi/10.19904/j.cnki.cn14-1160/s.2023.17.004<br> %R 10.19904/j.cnki.cn14-1160/s.2023.17.004<br> %W CNKI<br> </li><li> %0 Journal Article<br> %A 刘志宏<br> %A 田媛<br> %A 陈红娜<br> %A 周志豪<br> %A 郑洁<br> %A 杨晓怀 <br> %+深圳市农业科技促进中心;暨南大学食品科学与工程系;<br> %T 水稻转基因育种的研究进展与应用现状<br> %J 中国种业<br> %D 2023<br> %V <br> %N 09<br> %K 转基因育种;水稻;病虫害;除草剂<br> %X 随着生物技术发展的不断深入，我国水稻种业的发展也面临着全新的机遇和挑战。目前，改善水稻品种质量的主要方法有分子标记技术、基因编辑技术和转基因技术。其中，转基因水稻是利用生物技术手段将外源基因转入到目标水稻的基因组中，通过外源基因的表达，获得具有抗病、抗虫、抗除草剂等优良性状的水稻品种。近年来，国内外在采用转基因技术进行水稻育种，提升水稻产量、改善水稻品质方面具有较多的研究进展。在阐述转基因技术工作原理的基础上，概述国内外利用转基因技术在优质水稻育种方面的研究进展，进一步探究转基因技术在我国水稻育种领域的发展前景。<br>%P 11-17<br> %@ 1671-895X<br> %U https: //link.cnki.net/doi/10.19462/j.cnki.1671-895x.2023.09.038<br> %R10.19462/j.cnki.1671-895x.2023.09.038<br> %W CNKI<br> </li><li> %0 Journal Article<br> %A 孙萌<br> %A 李荣田 <br> %+ 黑龙江大学生命科学学院/黑龙江省普通高等学校分子生物学重点实验室;黑龙江大学农业微生物技术教育部工程研究中心;<br> %T 基于文献计量学的中国水稻转录组研究进展<br> %J 环境工程<br> %D 2023<br> %V 41<br> %N S2<br> %K 水稻转录组;文献计量学;VOSviewer<br> %X 为了探究水稻转录组(Ricetranscriptome)研究的热点与趋势,本研究基于CNKI数据库,基于文献计量学的方法,对中国的发文量、关键词、研究机构、作者、基金、学科方向,进行相关分析。发现水稻转录组的研究进展与趋势动态,旨在为水稻转录组等领域的研究人员提供一定量的数据进行参考。结果显示:2003—2021年水稻转录组的研究论文数量共1512篇;文献的数量逐年增加,其中在2020年的产出数量最高;发文量前3的作者分别是刘向东、吴锦文、梁五生;华中农业大学,南京农业大学,浙江大学,中国农业科学院,华南农业大学发表的水稻转录组文献数量居全国前5位;该领域主要研究学科是,农作物、植物保护、园艺、生物学和林业等;国家自然科学基金是支持水稻转录组研究的主要项目。综合来看,中国在研究水稻转录组领域处于优势地位。<br>%P 1016-1019<br> %@ 1000-8942<br> %U https://kns.cnki.net/kcms2/article/abstract?v=ebrKgZyeBkxImzDUXjcVU04XYh7-VuK-twxFNRUx7mIL4CLVOe5VfbRl0TM7H3f_mb78up_-AjT2Rwgo5xU0wbsknYXBxlrO6GG-wlfR5dIIK8MKL8g8Vmc4O-Q3_qdDWz1MlRhZmckhhPAGlFwAFQ==&uniplatform=NZKPT&language=CHS<br>%W CNKI<br> </li></ul><input id='hidMode' type='hidden' value='BATCH_DOWNLOAD,EXPORT,CLIPYBOARD,PRINT'><input id='traceid' type='hidden'value='27077cd0510c4c989a7ac58b5541a910.173062.17016154007783847'>"
 	}; */
+
+	// During debugging, may manually throw errors to guide the program to run inward
+	// throw ReferenceError;
 
 	let postData = `FileName=${fileNames.join(',')}`
 		+ '&DisplayMode=EndNote'
@@ -735,7 +744,7 @@ function fixItem(newItem, doc, ids, itemKey) {
 	if (newItem.pages) {
 		newItem.pages = newItem.pages.replace(/0*([1-9]\d*)/g, '$1');
 	}
-	
+
 
 	/* tags */
 	let tags = Array.from(doc.querySelectorAll('div.doc p.keywords a, #ChDivKeyWord > a'))
