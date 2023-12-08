@@ -9,7 +9,7 @@
 	"inRepository": true,
 	"translatorType": 4,
 	"browserSupport": "gcsibv",
-	"lastUpdated": "2023-12-07 11:22:09"
+	"lastUpdated": "2023-12-08 07:52:06"
 }
 
 /*
@@ -152,7 +152,7 @@ class ID {
 	toLanguage() {
 		// zh database code: CJFQ,CDFD,CMFD,CPFD,IPFD,CPVD,CCND,WBFD,SCSF,SCHF,SCSD,SNAD,CCJD,CJFN,CCVD
 		// en database code: WWJD,IPFD,WWPD,WWBD,SOSD
-		return ['WWJD', 'IPFD', 'WWPD', 'WWBD', 'SOSD'].includes(this.debcode)
+		return ['WWJD', 'IPFD', 'WWPD', 'WWBD', 'SOSD'].includes(this.dbcode)
 			? 'en-US'
 			: 'zh-CN';
 	}
@@ -357,7 +357,7 @@ async function doWeb(doc, url) {
 		}
 	}
 	// CHKI thingker
-	else if (url.includes('/thinker.cnki/')) {
+	else if (url.includes('thinker.cnki')) {
 		await scrapeZhBook(doc, url);
 	}
 	// geology, scholar
@@ -602,6 +602,10 @@ async function parseRefer(referText, doc, ids, itemKey) {
 					}
 				});
 				break;
+			case 'conferencePaper':
+				newItem.conferenceName = newItem.publicationTitle;
+				delete newItem.publicationTitle;
+				break;
 			default:
 				break;
 		}
@@ -720,13 +724,13 @@ function fixItem(newItem, doc, ids, itemKey) {
 	if (itemKey.cite) newItem.extra += `\ncite: ${itemKey.cite}`;
 	// Build a shorter url
 	let url = itemKey.url || ids.url;
-	newItem.url = url.includes("cnki.net")
-		? url
-		: 'https://kns.cnki.net/KCMS/detail/detail.aspx?'
-		+ `dbcode=${ids.dbcode}`
-		+ `&dbname=${ids.dbname}`
-		+ `&filename=${ids.filename}`
-		+ `&v=`;
+	newItem.url = /kcms2/i.test(url)
+		? 'https://kns.cnki.net/KCMS/detail/detail.aspx?'
+			+ `dbcode=${ids.dbcode}`
+			+ `&dbname=${ids.dbname}`
+			+ `&filename=${ids.filename}`
+			+ `&v=`
+		: url;
 	// CNKI DOI
 	if (!newItem.DOI) newItem.DOI = labels.getWith('DOI');
 	newItem.creators.forEach((element) => {
@@ -738,8 +742,7 @@ function fixItem(newItem, doc, ids, itemKey) {
 		newItem.itemType = 'preprint';
 		newItem.date = tryMatch(innerText(doc, '.head-time, .head-tag'), /：([\d-]*)/, 1);
 	}
-
-	newItem.language = ids.toBoolean();
+	newItem.language = ids.toLanguage();
 
 	if (newItem.pages) {
 		newItem.pages = newItem.pages.replace(/0*([1-9]\d*)/g, '$1');
@@ -776,7 +779,7 @@ function fixItem(newItem, doc, ids, itemKey) {
 }
 
 /* A dedicated scrape scheme for Chinese books in CNKI thingker. */
-async function scrapeZhBook(doc, url, itemKey) {
+async function scrapeZhBook(doc, url) {
 	var bookItem = new Z.Item(detectWeb(doc, url));
 	bookItem.title = text(doc, '#b-name, .art-title > h1');
 	bookItem.abstractNote = text(doc, '[name="contentDesc"], .desc-content').replace(/\n+/, '\n');
@@ -802,18 +805,18 @@ async function scrapeZhBook(doc, url, itemKey) {
 		}
 	};
 	Z.debug('scrape zh book with data:');
-	Z.debug('form dao, we get labels:');
+	Z.debug('form data, we get labels:');
 	Z.debug(data);
 	bookItem.edition = data.get('版次');
 	bookItem.pages = data.get('页数');
 	bookItem.publisher = text(doc, '.xqy_g') || data.get('出版社');
 	bookItem.date = data.get('出版时间')
-		.replace(/(\d{4})(0?\d)(\d*)/, '$1-$2-$3')
+		.replace(/(\d{4})(0?\d{1,2})(\d{1,2})/, '$1-$2-$3')
 		.replace(/-$/, '');
 	bookItem.language = 'zh-CN';
 	bookItem.ISBN = data.get('国际标准书号ISBN');
 	bookItem.libraryCatalog = data.get('所属分类');
-	if (itemKey.cite) bookItem.extra += `\ncite: ${itemKey.cite}`;
+	bookItem.extra = `cite: ${text(doc, '.book_zb_yy span:last-child')}`;
 	bookItem.complete();
 }
 
@@ -940,6 +943,7 @@ var testCases = [
 				"abstractNote": "来自中药的水溶性多糖具有广谱治疗和低毒性特点,是天然药物及保健品研发中的重要组成部分。针对中药多糖结构复杂、难以表征的问题,本文以中药黄芪中的多糖为研究对象,采用\"自下而上\"法完成对黄芪多糖的表征。首先使用部分酸水解方法水解黄芪多糖,分别考察了水解时间、酸浓度和温度的影响。在适宜条件(4 h、1.5mol/L三氟乙酸、80℃)下,黄芪多糖被水解为特征性的寡糖片段。接下来,采用亲水作用色谱与质谱联用对黄芪多糖部分酸水解产物进行分离和结构表征。结果表明,提取得到的黄芪多糖主要为1→4连接线性葡聚糖,水解得到聚合度4~11的葡寡糖。本研究对其他中药多糖的表征具有一定的示范作用。",
 				"archiveLocation": "CNKI",
 				"issue": "12",
+				"language": "zh-CN",
 				"libraryCatalog": "CNKI",
 				"pages": "1306-1312",
 				"publicationTitle": "色谱",
@@ -1006,6 +1010,7 @@ var testCases = [
 				"date": "2017",
 				"abstractNote": "黄瓜(Cucumis sativus L.)是我国最大的保护地栽培蔬菜作物,也是植物性别发育和维管束运输研究的重要模式植物。黄瓜基因组序列图谱已经构建完成,并且在此基础上又完成了全基因组SSR标记开发和涵盖330万个变异位点变异组图谱,成为黄瓜功能基因研究的重要平台和工具,相关转录组研究也有很多报道,不过共表达网络研究还是空白。本实验以温室型黄瓜9930为研究对象,选取10个不同组织,进行转录组测序,获得10份转录组原始数据。在对原始数据去除接头与低质量读段后,将高质量读段用Tophat2回贴到已经发表的栽培黄瓜基因组序列上。用Cufflinks对回贴后的数据计算FPKM值,获得10份组织的24274基因的表达量数据。计算结果中的回贴率比较理想,不过有些基因的表达量过低。为了防止表达量低的基因对结果的影响,将10份组织中表达量最大小于5的基因去除,得到16924个基因,进行下一步分析。共表达网络的构建过程是将上步获得的表达量数据,利用R语言中WGCNA(weighted gene co-expression network analysis)包构建共表达网络。结果得到的共表达网络包括1134个模块。这些模块中的基因表达模式类似,可以认为是共表达关系。不过结果中一些模块内基因间相关性同其他模块相比比较低,在分析过程中,将模块中基因相关性平均值低于0.9的模块都去除,最终得到839个模块,一共11,844个基因。共表达的基因因其表达模式类似而聚在一起,这些基因可能与10份组织存在特异性关联。为了计算模块与组织间的相关性,首先要对每个模块进行主成分分析(principle component analysis,PCA),获得特征基因(module eigengene,ME),特征基因可以表示这个模块所有基因共有的表达趋势。通过计算特征基因与组织间的相关性,从而挑选出组织特异性模块,这些模块一共有323个。利用topGO功能富集分析的结果表明这些特异性模块所富集的功能与组织相关。共表达基因在染色体上的物理位置经常是成簇分布的。按照基因间隔小于25kb为标准。分别对839个模块进行分析,结果发现在71个模块中共有220个cluster,这些cluster 一般有2～5个基因,cluster中的基因在功能上也表现出一定的联系。共表达基因可能受到相同的转录调控,这些基因在启动子前2kb可能会存在有相同的motif以供反式作用元...",
 				"archiveLocation": "CNKI",
+				"language": "zh-CN",
 				"libraryCatalog": "CNKI",
 				"thesisType": "硕士",
 				"university": "南京农业大学",
@@ -1054,6 +1059,7 @@ var testCases = [
 				"abstractNote": "<正>辽西区的范围从大兴安岭南缘到渤海北岸,西起燕山西段,东止辽河平原,基本上包括内蒙古的赤峰市(原昭乌达盟)、哲里木盟西半部,辽宁省西部和河北省的承德、唐山、廊坊及其邻近的北京、天津等地区。这一地区的古人类遗存自旧石器时代晚期起,就与同属东北的辽东区有着明显的不同,在后来的发展中,构成自具特色的一个考古学文化区,对我国东北部起过不可忽视的作用。以下就辽西地区新石器时代的考古学文化序列、编年、谱系及有关问题简要地谈一下自己的认识。",
 				"archiveLocation": "CNKI",
 				"conferenceName": "内蒙古东部地区考古学术研讨会",
+				"language": "zh-CN",
 				"libraryCatalog": "CNKI",
 				"pages": "6",
 				"place": "中国内蒙古赤峰",
@@ -1108,6 +1114,7 @@ var testCases = [
 				"abstractNote": "目的利用生物信息学方法探索2型糖尿病发病的相关基因,并研究这些基因与阿尔茨海默病的关系。方法基因表达汇编(GEO)数据库下载GSE85192、GSE95849、GSE97760、GSE85426数据集,获得健康人和2型糖尿病患者外周血的差异基因,利用加权基因共表达网络(WGCNA)分析差异基因和临床性状的关系。使用DAVID数据库分析与2型糖尿病有关的差异基因的功能与相关通路,筛选关键蛋白。根据结果将Toll样受体4 (TLR4)作为关键基因,利用基因集富集分析(GSEA)分析GSE97760中与高表达TLR4基因相关的信号通路。通过GSE85426验证TLR4的表达量。结果富集分析显示,差异基因主要参与的生物学过程包括炎症反应、Toll样受体(TLR)信号通路、趋化因子产生的正向调节等。差异基因主要参与的信号通路有嘧啶代谢通路、TLR信号通路等。ILF2、TLR4、POLR2G、MMP9为2型糖尿病的关键基因。GSEA显示,TLR4上调可通过影响嘧啶代谢及TLR信号通路而导致2型糖尿病及阿尔茨海默病的发生。TLR4在阿尔茨海默病外周血中高表达。结论 ILF2、TLR4、POLR2G、MMP9为2型糖尿病发病的关键基因,TLR4基因上调与2型糖尿病、阿尔茨海默病发生有关。",
 				"archiveLocation": "CNKI",
 				"issue": "12",
+				"language": "zh-CN",
 				"libraryCatalog": "CNKI",
 				"pages": "1106-1111+1117",
 				"publicationTitle": "中国医科大学学报",
@@ -1171,6 +1178,7 @@ var testCases = [
 				"date": "2015-1-1",
 				"ISBN": "9787111520269",
 				"abstractNote": "本书从社会实际需求出发，根据多年的科研经验和成果，与多年从事测控信息处理、食品等相关专业的研究人员合作，融入许多解决实际问题的研究和实践成果，系统介绍了本课题组基于近红外光谱分析技术在果蔬类农药残留量的检测、食用植物油品质、小麦粉、淀粉的品质检测中的应用研究成",
+				"extra": "cite: 34",
 				"language": "zh-CN",
 				"publisher": "机械工业出版社",
 				"attachments": [],
@@ -1209,76 +1217,11 @@ var testCases = [
 				],
 				"date": "2015",
 				"abstractNote": "8.1||简介\n淀粉是以谷类、薯类、豆类为原料,不经过任何化学方法处理,也不改变淀粉内在的物理和化学特性加工而成的。它是日常生活中必不可少的作料之一,如煎炸烹炒,做汤勾芡都少不了要用到淀粉。随着食用淀粉在现代食品加工业中的广泛应用,淀粉生产和加工贸易取得了较大的发展。常见的产品主要有玉米淀粉、马铃薯淀粉、红薯淀粉和绿豆淀粉等,不同种类的淀粉价格差别较大,有的相差高达10倍以上,但是不同种类淀粉颗粒的宏观外观和普通物化指标差别不明显,无法辨认。由于缺乏相应的食用淀粉鉴别检验技术标准,国内淀粉市场严格监管很难执...",
+				"extra": "cite:",
 				"language": "zh-CN",
 				"publisher": "机械工业出版社",
 				"attachments": [],
 				"tags": [],
-				"notes": [],
-				"seeAlso": []
-			}
-		]
-	},
-	{
-		"type": "web",
-		"url": "https://kns.cnki.net/kcms2/article/abstract?v=xNq_RSSxtttIrJeXZkUKrgYm5VzJ-cJ9ZNcedU6pGWexISAAO8qiV7mEZDjQI7trZCGfp4wUbHAL3uTnBZiOYg3IMJ-VRP_mBkw0Ge0CdJH7CJoz7mNCVnlE_-UT40nuC82rJvoNfD-xXPwyvP2F6-c6vh1GbQHlgmf6RFLcm9M=&uniplatform=NZKPT&language=CHS",
-		"items": [
-			{
-				"itemType": "book",
-				"title": "An Optimal Rice Policy for Sierra Leone : Balancing Consumer and Producer Welfare",
-				"creators": [
-					{
-						"firstName": "Graham Errol",
-						"lastName": "George",
-						"creatorType": "author"
-					},
-					{
-						"firstName": "Tchale",
-						"lastName": "Hardwick",
-						"creatorType": "author"
-					},
-					{
-						"firstName": "Ndione",
-						"lastName": "Mamadou",
-						"creatorType": "author"
-					}
-				],
-				"abstractNote": "CONSUMER SURPLUS; PRODUCER SURPLUS; WELFARE; SUPPLY RESPONSE; RICE PRICE; DEMAND ELASTICITY; SUPPLY ELASTICITY; FOOD SECURITY;",
-				"libraryCatalog": "CNKI",
-				"shortTitle": "An Optimal Rice Policy for Sierra Leone",
-				"url": "https://kns.cnki.net/kcms2/article/abstract?v=xNq_RSSxtttIrJeXZkUKrgYm5VzJ-cJ9ZNcedU6pGWexISAAO8qiV7mEZDjQI7trZCGfp4wUbHAL3uTnBZiOYg3IMJ-VRP_mBkw0Ge0CdJH7CJoz7mNCVnlE_-UT40nuC82rJvoNfD-xXPwyvP2F6-c6vh1GbQHlgmf6RFLcm9M=&uniplatform=NZKPT&language=CHS",
-				"attachments": [
-					{
-						"title": "Full Text CAJ",
-						"mimeType": "application/caj",
-						"url": ""
-					}
-				],
-				"tags": [
-					{
-						"tag": "CONSUMER SURPLUS"
-					},
-					{
-						"tag": "DEMAND ELASTICITY"
-					},
-					{
-						"tag": "FOOD SECURITY"
-					},
-					{
-						"tag": "PRODUCER SURPLUS"
-					},
-					{
-						"tag": "RICE PRICE"
-					},
-					{
-						"tag": "SUPPLY ELASTICITY"
-					},
-					{
-						"tag": "SUPPLY RESPONSE"
-					},
-					{
-						"tag": "WELFARE"
-					}
-				],
 				"notes": [],
 				"seeAlso": []
 			}
@@ -1326,7 +1269,7 @@ var testCases = [
 				"date": "2014",
 				"abstractNote": "第5代移动通信系统(5G)是面向2020年之后的新一代移动通信系统,其技术发展尚处于探索阶段.结合国内外移动通信发展的最新趋势,本文对5G移动通信发展的基本需求、技术特点与可能发展途径进行了展望,并分无线传输和无线网络两个部分,重点论述了富有发展前景的7项5G移动通信关键技术,包括大规模天线阵列、基于滤波器组的多载波技术、全双工复用、超密集网络、自组织网络、软件定义网络及内容分发网络.本文还概括性地介绍了国内5G移动通信的相关研发活动及其近期发展目标.",
 				"issue": "5",
-				"language": true,
+				"language": "zh-CN",
 				"libraryCatalog": "CNKI",
 				"publicationTitle": "中国科学:信息科学",
 				"url": "https://inds.cnki.net/kcms/detail?dbcode=&dbname=DKCTLKCJFD2014&filename=PZKX201405001&pcode=DKCT&zylx=",
@@ -1390,7 +1333,7 @@ var testCases = [
 				],
 				"date": "2023",
 				"abstractNote": "含铜废水污染广泛、毒性大,已严重威胁生态环境和人体健康。吸附法是一种常见的金属铜去除方法,通过物理化学吸附作用广泛应用于富集和分离金属铜。由于环境介质中污染情况复杂,环境污染风险高,因此需要一种针对于目标离子高效去除及选择性识别能力的技术。表面离子印迹技术通过选择合适的功能单体、交联剂及基底材料制备针对于目标离子形成特异性识别位点的材料,具有较高的选择性。本文以氧化石墨烯（GO）为印迹母体材料、四氧化三铁（Fe3O4/M）为磁性组分,二价铜离子（Cu（Ⅱ））作为模版离子,经过有机-无机杂化功能单体ATPES（硅烷偶联剂350）-MAA（甲基丙烯酸）,以及交联剂二甲基丙烯酸乙二醇酯（EGDMA）结合作用,成功制备了高效选择去除铜离子的铜离子表面印迹聚合物（MS/MGO-Cu-iip）。为确定该材料的最佳合成及反应条件,本文通过功能单体喂料比,动力学,热力学分析等进行探究。此外,在印迹材料循环吸附重金属五次后,吸附剂吸附能力下降,对于废弃物处理需要一种经济、高效的手段来有效利用印迹材料。本文制备的铜离子印迹材料不但解决了污水中铜污染的问题,并且将铜离子印迹材料作为一种高效的催化剂活性成分,直接加间接催化降解四环素,大大提高了材料回收利用及环保的经济价值。针对于将MS/MGO-Cu-iip磁性回收并将其作为非均相催化剂结合氧气催化降解四环素（TC）是本研究的亮点,本文主要结论如下:（1）硅烷偶联剂（APTES）和甲基丙烯酸（MAA）的喂料比是材料吸附性能效果的重要因素。最佳合成条件为:APTES 14 m L、MAA 51 m L、Cu（Ⅱ）8 mmol、MGO 0.5 g。探究了Zn（Ⅱ）、Pb（Ⅱ）、Cd（Ⅱ）和Ni（Ⅱ）作为Cu（Ⅱ）的对比离子进行竞争的影响。结果表明,影响吸附容量的因素为金属离子的水合离子半径,并且在双元体系中,MS/MGO-Cu-iip对Cu（II）吸附容量有所下降,但下降效果有限。MS/MGO-Cu-iip对铜离子具有较高的选择性吸附效果。（2）通过扫描电镜（SEM）、磁敏性分析（VSM）、比表面积,孔径分析（BET）、X射线晶体衍射表征分析（XRD）对MS/MGO-Cu-iip进行表征分析。结果表明:反应前MS/MGO-Cu-iip材料表面呈不规则且具有丰富印迹空穴结构,反应后印迹空穴成功捕获铜离子,致使吸附位点充分填充;与磁性氧化石墨烯（MGO）相比,印迹材料的制备导致MS/MGO-Cu-iip比饱和磁场强度在一定程度上减弱,但材料仍为超顺磁性。两者的饱和磁化强度分别为42.2 emu/g和57.3 emu/g。BET分析表明,表面印迹材料为介孔材料,MGO与MS/MGO-Cu-iip的比表面积分别为88.54 m2/g和155.55 m2/g;Fe3O4成功结合在GO之上,且交联过程没有改变材料的基本结构。MS/MGO-Cu-iip在5次循环使用后,可用反应位点不断减少,其对Cu（Ⅱ）吸附性能逐步下降到80%以下。（3）为了使循环后的印迹材料“变废为宝”。针对MS/MGO-Cu-iip作为非均相催化剂高效利用,进行四环素（TC）的催化降解。结果表明,在不同材料投加量和TC初始投加量下,MS/MGO-Cu-iip活化活性氧物质（ROS）对TC的去除效果均好于单独使用GO或MGO。值得注意的是,由于铜离子的介入,致使非均相催化剂相较于传统芬顿反应,在中性条件下也具有良好的TC去除效果。在自由基淬灭试验中,O2·-为TC去除反应的主要活性自由基。此外,依据通氮气和脱附试验计算,TC对MS/MGO-Cu-iip的吸附率和降解率分别为30.98%和63.10%。其中,MS/MGO-Cu-iip对TC的直接降解率和间接降解率分别为45.93%和17.17%。",
-				"language": true,
+				"language": "zh-CN",
 				"libraryCatalog": "CNKI",
 				"thesisType": "硕士",
 				"university": "吉林大学",
@@ -1440,7 +1383,112 @@ var testCases = [
 	},
 	{
 		"type": "web",
-		"url": "https://kns.cnki.net/kcms2/article/abstract?v=z-q19lQZUWE6hE7Gpq4L7kTFhx1kXjMPjzuvaOf_Kd9uSncevOzcEY-k457tQta7N5KdMtx0-30kzYpYxONPjBmWUD2YXAKS8NQe4H4gNnYGxsoNZWBK-bXHugziqxEV7vSvh5f2bhUxt4-RL4Perlfw84hNWYTo9G1m-YLlGqU=&uniplatform=NZKPT&language=CHS",
+		"url": "https://kns.cnki.net/kcms2/article/abstract?v=z-q19lQZUWHKwtbssKP1NCvaTen75BAt1H4hllXU6PeIwHvFUpn7OEevEgfhBdBoGIzXGsK9cklpvaeRdS2vmTL-5OMnipsdXEYqZM1l5mkIQVOeEOeeasa7QrP9ssiDf2c6jwKg-4NuosyfYBPL_bNqRxz-xpF4TUp2f9NNass=&uniplatform=NZKPT&language=CHS",
+		"items": [
+			{
+				"itemType": "book",
+				"title": "Digital Labour Markets in Central and Eastern European Countries:COVID-19 and the Future of Work",
+				"creators": [
+					{
+						"firstName": "Beata Woźniak",
+						"lastName": "Jęchorek",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Kamilla Marchewka",
+						"lastName": "Bartkowiak",
+						"creatorType": "author"
+					}
+				],
+				"ISBN": "9781003326779",
+				"extra": "titleTranslation:",
+				"language": true,
+				"libraryCatalog": "CNKI",
+				"shortTitle": "Digital Labour Markets in Central and Eastern European Countries",
+				"url": "https://kns.cnki.net/kcms2/article/abstract?v=z-q19lQZUWHKwtbssKP1NCvaTen75BAt1H4hllXU6PeIwHvFUpn7OEevEgfhBdBoGIzXGsK9cklpvaeRdS2vmTL-5OMnipsdXEYqZM1l5mkIQVOeEOeeasa7QrP9ssiDf2c6jwKg-4NuosyfYBPL_bNqRxz-xpF4TUp2f9NNass=&uniplatform=NZKPT&language=CHS",
+				"attachments": [
+					{
+						"title": "Full Text CAJ",
+						"mimeType": "application/caj",
+						"url": ""
+					}
+				],
+				"tags": [],
+				"notes": [],
+				"seeAlso": []
+			}
+		]
+	},
+	{
+		"type": "web",
+		"url": "https://kns.cnki.net/kcms2/article/abstract?v=UQzSFoOd3Sed1c-wDleVG47j_dcqt6QkqEdpsAOgJS3R4797ADgxz9tJmImFiRC5fn96VbMc8z79zuZu0FEX-656R_KHHjoe2hH5LMSD-f4W7kdVItmGSde3HCUPzakodtORTbqjgVGwpK9sKcA0goOlH_vlgvLqFZ1ZrmGdlIrX6H456mZYfw==&uniplatform=NZKPT&language=CHS",
+		"items": [
+			{
+				"itemType": "book",
+				"title": "An Optimal Rice Policy for Sierra Leone : Balancing Consumer and Producer Welfare",
+				"creators": [
+					{
+						"firstName": "Graham Errol",
+						"lastName": "George",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Tchale",
+						"lastName": "Hardwick",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Ndione",
+						"lastName": "Mamadou",
+						"creatorType": "author"
+					}
+				],
+				"extra": "titleTranslation:",
+				"language": "en-US",
+				"libraryCatalog": "CNKI",
+				"shortTitle": "An Optimal Rice Policy for Sierra Leone",
+				"url": "https://kns.cnki.net/KCMS/detail/detail.aspx?dbcode=WWBD&dbname=GARBLAST&filename=SBWB0DC56763FE59D99F4F5419C346A10538&v=",
+				"attachments": [
+					{
+						"title": "Full Text CAJ",
+						"mimeType": "application/caj",
+						"url": ""
+					}
+				],
+				"tags": [
+					{
+						"tag": "CONSUMER SURPLUS"
+					},
+					{
+						"tag": "DEMAND ELASTICITY"
+					},
+					{
+						"tag": "FOOD SECURITY"
+					},
+					{
+						"tag": "PRODUCER SURPLUS"
+					},
+					{
+						"tag": "RICE PRICE"
+					},
+					{
+						"tag": "SUPPLY ELASTICITY"
+					},
+					{
+						"tag": "SUPPLY RESPONSE"
+					},
+					{
+						"tag": "WELFARE"
+					}
+				],
+				"notes": [],
+				"seeAlso": []
+			}
+		]
+	},
+	{
+		"type": "web",
+		"url": "https://kns.cnki.net/kcms2/article/abstract?v=UQzSFoOd3SdbBnrSGq7LcuMHMTnkSoLdyyZvMPPpWoI_f6ztm2N9S0xqvj-VQqAvDAR4Rsgm_2PkJCa1KR5Apbt3dPvcD7YnPh_II0FqHvqRAMU6yB5dxBAwPMR0OjB5Lph-OnXIvVK4eNg3uqZ6zZutc7o4QVarVOiNKN2yIKI=&uniplatform=NZKPT&language=CHS",
 		"items": [
 			{
 				"itemType": "conferencePaper",
@@ -1470,11 +1518,11 @@ var testCases = [
 				"abstractNote": "金黄色葡萄球菌是一种常见的病原体,可引起多种严重感染。因此,需要高效实用的技术来对抗金黄色葡萄球菌。本研究利用转录组学评估了金黄色葡萄球菌在使用异硫氰酸苄酯(BITC)处理后的变化,以确定其抗菌作用。结果显示,与对照组相比,1/8 MIC BITC处理组有92个差异表达基因,其中42个基因下调。此外,我们还利用STRING分析揭示了34个基因编码的蛋白质相互作用。然后,我们通过qRT-PCR验证了三个重要的毒力基因,包括胶囊多糖合成酶(cp8F)、胶囊多糖生物合成蛋白(cp5D)和热核酸酶(nuc)。此外,还进行了分子对接分析,以研究BITC与cp8F、cp5D和nuc的编码蛋白的作用位点。结果表明,BITC与所选蛋白质的对接分数在-6.00至-6.60kcal/mol之间,证实了这些复合物的稳定性。BITC与这些蛋白质的氨基酸TRP (130)、GLY (10)、ILE (406)、LYS (368)、TYR (192)和ARG (114)形成疏水、氢键、π-π共轭相互作用。这些发现将有助于今后研究BITC对金黄色葡萄球菌的抗菌机制。",
 				"archiveLocation": "CNKI",
 				"conferenceName": "中国食品科学技术学会第二十届年会",
+				"language": "zh-CN",
 				"libraryCatalog": "CNKI",
 				"pages": "2",
 				"place": "中国湖南长沙",
-				"proceedingsTitle": "中国食品科学技术学会第二十届年会",
-				"url": "https://kns.cnki.net/kcms2/article/abstract?v=z-q19lQZUWE6hE7Gpq4L7kTFhx1kXjMPjzuvaOf_Kd9uSncevOzcEY-k457tQta7N5KdMtx0-30kzYpYxONPjBmWUD2YXAKS8NQe4H4gNnYGxsoNZWBK-bXHugziqxEV7vSvh5f2bhUxt4-RL4Perlfw84hNWYTo9G1m-YLlGqU=&uniplatform=NZKPT&language=CHS",
+				"url": "https://kns.cnki.net/KCMS/detail/detail.aspx?dbcode=CPFD&dbname=CPFDTEMP&filename=ZGSP202310001012&v=",
 				"attachments": [
 					{
 						"title": "Full Text CAJ",
@@ -1505,7 +1553,7 @@ var testCases = [
 	},
 	{
 		"type": "web",
-		"url": "https://kns.cnki.net/kcms2/article/abstract?v=z-q19lQZUWEkYD96r0fZn8xJClatpdZ_9CoDzRS-DDyBvDjsXm1TOW1RcWNSpkDRk8ypnS1I8oSbJ8tUrQxxossTM-jDVPCLB1h37VHv7-r33IUd2v_O2Hk9hZu0EpR8XDssRGxGQeQ52juhUQVLvFCFkr6GBiUUvPr3ox7oxyM=&uniplatform=NZKPT&language=CHS",
+		"url": "https://kns.cnki.net/kcms2/article/abstract?v=UQzSFoOd3ScQwQm3wCi7InRyfzxjaFcCIWM1TfgqicXH5A8wz5A_byK5gYQ0YGsqaQXXTUubuVZtZB32hKTpUCbgx42V72LGUhetdEZ2crL-S5z9-TEpIq-PHnXgk1ko8jhtUiZl-SZqs6R5TSlZB33MopJqKvg4DE8qbf0fQ-8=&uniplatform=NZKPT&language=CHS",
 		"items": [
 			{
 				"itemType": "newspaperArticle",
@@ -1522,10 +1570,11 @@ var testCases = [
 				"abstractNote": "科技日报北京9月20日电 （记者刘霞）瑞典国家分子生物科学中心科学家首次分离和测序了一个已灭绝物种的RNA分子，从而重建了该灭绝物种（塔斯马尼亚虎）的皮肤和骨骼肌转录组。该项成果对复活塔斯马尼亚虎和毛猛犸象等灭绝物种，以及研究如新冠病毒等RNA病毒具有重要意义。相......",
 				"archiveLocation": "CNKI",
 				"callNumber": "11-0315",
+				"language": "zh-CN",
 				"libraryCatalog": "CNKI",
 				"pages": "4",
 				"publicationTitle": "科技日报",
-				"url": "https://kns.cnki.net/kcms2/article/abstract?v=z-q19lQZUWEkYD96r0fZn8xJClatpdZ_9CoDzRS-DDyBvDjsXm1TOW1RcWNSpkDRk8ypnS1I8oSbJ8tUrQxxossTM-jDVPCLB1h37VHv7-r33IUd2v_O2Hk9hZu0EpR8XDssRGxGQeQ52juhUQVLvFCFkr6GBiUUvPr3ox7oxyM=&uniplatform=NZKPT&language=CHS",
+				"url": "https://kns.cnki.net/KCMS/detail/detail.aspx?dbcode=CCND&dbname=CCNDLAST2023&filename=KJRB202309210044&v=",
 				"attachments": [
 					{
 						"title": "Full Text CAJ",
@@ -1547,7 +1596,7 @@ var testCases = [
 	},
 	{
 		"type": "web",
-		"url": "https://t.cnki.net/kcms/article/abstract?v=z-q19lQZUWEWQmkcFSQlu3jSJHTsN3oiI7eN5GOlkDRYNzMtdD5vFgLE4cmgBky-uwqGlTf5qAnk77xgWfGEs3H2EKXHLagqKil231uco9cWjdgdFqdUvmk4uWsY_Z1Bu91DIlBVokQ=&uniplatform=NZKPT",
+		"url": "https://t.cnki.net/kcms/article/abstract?v=UQzSFoOd3SdWXxdk8dNI1HXn1jcZcxK8e4IiKPEt-5TsaRYi9gKDUxqgsjrm0u7feqnwZoMci1ilw8hgcwxhIHGfnI-JKGjel6xYy8bfLSCJqXOzqNPLCwwn30jwdaip1hPYnO__wvI=&uniplatform=NZKPT",
 		"items": [
 			{
 				"itemType": "journalArticle",
@@ -1589,10 +1638,11 @@ var testCases = [
 				"abstractNote": "金属面夹芯板以其保温绝热、降噪、自重轻和装配效率高等优点在围护结构中得到了很好的应用，基于金属面夹芯板的构造，提出一种新型的压型钢板与聚氨酯组合的夹芯楼板结构。为了研究压型钢板-聚氨酯夹芯楼板的受弯性能，对夹芯楼板试件进行了两点对称静载试验。在试验的基础上，提出并验证了夹芯楼板有限元模型，并对槽钢楼板厚度、压型钢板厚度和聚氨酯密度等进行了参数分析。研究结果表明：夹芯楼板的破坏形式主要表现为挠度过大，最大挠度达到了板跨度的1/42,并且跨中截面处的槽钢出现畸变屈曲；夹芯楼板受弯变形后，槽钢首先达到屈服状态，而受压钢板的材料性能未能得到充分发挥；新型压型钢板聚氨酯夹芯楼板相比传统金属面夹芯板的承载能力和刚度有明显提升，承载力和刚度均提高203%;楼板厚度和压型钢板厚度对夹芯楼板的承载能力和刚度均具有显著影响，而楼板厚度相比压型钢板厚度对刚度的影响效果更明显，当楼板厚度从120 mm增大到160 mm时，夹芯楼板的承载力在正常使用状态下提高87%,在承载能力极限状态下提高63%,刚度提高88%,钢板厚度由1 mm增至3 mm时，夹芯楼板的承载力在正常使用状态下提高59%,在承载能力极限状态下提高84%,刚度提高61%;聚氨酯泡沫密度的变化对夹芯楼板的承载能力和刚度影响较小，当密度从45 kg/m~3变化到90 kg/m~3时，正常使用状态下夹芯楼板的承载力增幅为12%,承载能力极限状态下的承载力增幅仅为2%,刚度增幅为12%。",
 				"archiveLocation": "CNKI",
 				"issue": "8",
+				"language": "zh-CN",
 				"libraryCatalog": "CNKI",
 				"pages": "9-16",
 				"publicationTitle": "钢结构(中英文)",
-				"url": "https://t.cnki.net/kcms/article/abstract?v=z-q19lQZUWEWQmkcFSQlu3jSJHTsN3oiI7eN5GOlkDRYNzMtdD5vFgLE4cmgBky-uwqGlTf5qAnk77xgWfGEs3H2EKXHLagqKil231uco9cWjdgdFqdUvmk4uWsY_Z1Bu91DIlBVokQ=&uniplatform=NZKPT",
+				"url": "https://t.cnki.net/kcms/article/abstract?v=UQzSFoOd3SdWXxdk8dNI1HXn1jcZcxK8e4IiKPEt-5TsaRYi9gKDUxqgsjrm0u7feqnwZoMci1ilw8hgcwxhIHGfnI-JKGjel6xYy8bfLSCJqXOzqNPLCwwn30jwdaip1hPYnO__wvI=&uniplatform=NZKPT",
 				"volume": "37",
 				"attachments": [
 					{
@@ -1624,7 +1674,7 @@ var testCases = [
 	},
 	{
 		"type": "web",
-		"url": "https://kns.cnki.net/kcms2/article/abstract?v=z-q19lQZUWFpFdOhy6G3TBURSp85CRAZznMvqojBb2BMEZKqL2olt9RNQt3Skeq0e1ZD7VCCMwFtKC_Q0FBZZsOcAoSWZl30xw_i_6GjulabD1IyMTCDOJ0MJDBkfO6F6NEdr14bznFmpR-T7-SC3A==&uniplatform=NZKPT&language=CHS",
+		"url": "https://kns.cnki.net/kcms2/article/abstract?v=UQzSFoOd3SdlgpNFXt6ggwIOGkduDwaSsrvH3UbZ_sU64ClElhkYeZ3zNZnxp_be7hrr3QuZlCFfgGizaN9CaMHVp-G1QDeKB6qYKvUiuKEflRJ5IIt8CD8wJxzdsMkqwWqFlemMaPpZaGOBSa34LQ==&uniplatform=NZKPT&language=CHS",
 		"items": [
 			{
 				"itemType": "standard",
@@ -1694,50 +1744,13 @@ var testCases = [
 				"date": "2019-05-10",
 				"archiveLocation": "CNKI",
 				"committee": "全国粮油标准化技术委员会(SAC/TC 270)",
+				"language": "zh-CN",
 				"libraryCatalog": "67_040 食品技术-食品综合",
 				"number": "GB/T 37510-2019",
 				"publisher": "国家市场监督管理总局, 中国国家标准化管理委员会",
 				"status": "现行",
 				"type": "国家标准",
-				"url": "https://kns.cnki.net/kcms2/article/abstract?v=z-q19lQZUWFpFdOhy6G3TBURSp85CRAZznMvqojBb2BMEZKqL2olt9RNQt3Skeq0e1ZD7VCCMwFtKC_Q0FBZZsOcAoSWZl30xw_i_6GjulabD1IyMTCDOJ0MJDBkfO6F6NEdr14bznFmpR-T7-SC3A==&uniplatform=NZKPT&language=CHS",
-				"attachments": [
-					{
-						"title": "Full Text CAJ",
-						"mimeType": "application/caj",
-						"url": ""
-					}
-				],
-				"tags": [],
-				"notes": [],
-				"seeAlso": []
-			}
-		]
-	},
-	{
-		"type": "web",
-		"url": "https://kns.cnki.net/kcms2/article/abstract?v=z-q19lQZUWHKwtbssKP1NCvaTen75BAt1H4hllXU6PeIwHvFUpn7OEevEgfhBdBoGIzXGsK9cklpvaeRdS2vmTL-5OMnipsdXEYqZM1l5mkIQVOeEOeeasa7QrP9ssiDf2c6jwKg-4NuosyfYBPL_bNqRxz-xpF4TUp2f9NNass=&uniplatform=NZKPT&language=CHS",
-		"items": [
-			{
-				"itemType": "book",
-				"title": "Digital Labour Markets in Central and Eastern European Countries:COVID-19 and the Future of Work",
-				"creators": [
-					{
-						"firstName": "Beata Woźniak",
-						"lastName": "Jęchorek",
-						"creatorType": "author"
-					},
-					{
-						"firstName": "Kamilla Marchewka",
-						"lastName": "Bartkowiak",
-						"creatorType": "author"
-					}
-				],
-				"ISBN": "9781003326779",
-				"extra": "titleTranslation:",
-				"language": true,
-				"libraryCatalog": "CNKI",
-				"shortTitle": "Digital Labour Markets in Central and Eastern European Countries",
-				"url": "https://kns.cnki.net/kcms2/article/abstract?v=z-q19lQZUWHKwtbssKP1NCvaTen75BAt1H4hllXU6PeIwHvFUpn7OEevEgfhBdBoGIzXGsK9cklpvaeRdS2vmTL-5OMnipsdXEYqZM1l5mkIQVOeEOeeasa7QrP9ssiDf2c6jwKg-4NuosyfYBPL_bNqRxz-xpF4TUp2f9NNass=&uniplatform=NZKPT&language=CHS",
+				"url": "https://kns.cnki.net/KCMS/detail/detail.aspx?dbcode=SCSF&dbname=SCSF&filename=SCSF00058274&v=",
 				"attachments": [
 					{
 						"title": "Full Text CAJ",
