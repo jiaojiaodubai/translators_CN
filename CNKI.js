@@ -9,7 +9,7 @@
 	"inRepository": true,
 	"translatorType": 4,
 	"browserSupport": "gcsibv",
-	"lastUpdated": "2023-12-08 07:52:06"
+	"lastUpdated": "2023-12-08 09:06:24"
 }
 
 /*
@@ -161,7 +161,7 @@ class ID {
 // var debugMode = false;
 
 function detectWeb(doc, url) {
-	Z.debug("----------------CNKI 2023-12-07 19:19:26------------------");
+	Z.debug("----------------CNKI 2023-12-08 17:06:20------------------");
 	let ids = new ID(doc, url);
 	Z.debug('detect ids:');
 	Z.debug(ids);
@@ -445,6 +445,7 @@ async function scrapeWithGetExport(doc, ids, itemKey, inMainland) {
 		+ `${inMainland ? '&uniplatform=NZKPT' : ''}`
 		+ '&displaymode=GBTREFER%2Celearning%2CEndNote';
 	Z.debug(postData);
+	if (!postUrl || !postData) throw new ReferenceError('没有适合的接口可用');
 	let referText = await requestJSON(
 		postUrl,
 		{
@@ -508,6 +509,7 @@ async function scrapeWithShowExport(itemKeys, inMainland) {
 			'https://chn.oversea.cnki.net/kns/manage/export.html?displaymode=EndNote',
 
 		].find(element => element.includes(tryMatch(itemKeys[0].url, /\/\/.*?\//)));
+	if (!postUrl || !postData) throw new ReferenceError('没有适合的接口可用');
 	let referText = await request(
 		postUrl,
 		{
@@ -823,7 +825,7 @@ async function scrapeZhBook(doc, url) {
 // add pdf or caj to attachments, default is pdf
 function getAttachments(doc, keepPDF) {
 	var attachments = [];
-	let pdfurl = attr(doc, 'a[id^="pdfDown"]') || attr(doc, 'a[href*="/down/"]', 'href', 1);
+	let pdfurl = attr(doc, 'a[id^="pdfDown"]', 'href') || attr(doc, 'a[href*="/down/"]', 'href', 1);
 	let cajurl = attr(doc, 'a#cajDown', 'href') || attr(doc, 'a[href*="/down/"]', 'href', 0);
 	if (keepPDF && pdfurl) {
 		attachments.push({
