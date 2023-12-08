@@ -9,7 +9,7 @@
 	"inRepository": true,
 	"translatorType": 4,
 	"browserSupport": "gcsibv",
-	"lastUpdated": "2023-12-08 09:06:24"
+	"lastUpdated": "2023-12-08 09:51:42"
 }
 
 /*
@@ -71,10 +71,14 @@ class ID {
 			this[key] = attr(doc, frame[key].selector, 'value')
 				|| tryMatch(url, frame[key].pattern, 1);
 		}
-		this.dbcode = /^DKCT/.test(this.dbname)
-			// geology version
-			? this.dbname.slice(6, 10)
-			: this.dbcode || this.dbname.substr(0, 4).toUpperCase();
+		// geology version
+		if (/^DKCT/.test(this.dbname)) {
+			this.dbcode = this.dbname.slice(6, 10);
+			this.dbname = this.dbname.slice(6);
+		}
+		else {
+			this.dbcode = this.dbcode || this.dbname.substring(0, 4).toUpperCase();
+		}
 		this.url = url;
 	}
 
@@ -161,7 +165,7 @@ class ID {
 // var debugMode = false;
 
 function detectWeb(doc, url) {
-	Z.debug("----------------CNKI 2023-12-08 17:06:20------------------");
+	Z.debug("----------------CNKI 2023-12-08 17:51:35------------------");
 	let ids = new ID(doc, url);
 	Z.debug('detect ids:');
 	Z.debug(ids);
@@ -302,7 +306,7 @@ function getSearchResults(doc, url, checkOnly) {
 async function doWeb(doc, url) {
 	// "NZKPT" is marked as Chinese Mainland.
 	// Because CNKI has different APIs inside and outside Chinese Mainland, it needs to be differentiated.
-	const inMainland = doc.querySelector('a[href*="NZKPT"]');
+	const inMainland = doc.querySelector('a[href*="NZKPT"]') || doc.querySelector('a[href*="DKCT"]');
 	let ids = new ID(doc, url);
 
 	/*
@@ -361,7 +365,7 @@ async function doWeb(doc, url) {
 		await scrapeZhBook(doc, url);
 	}
 	// geology, scholar
-	else if (url.includes('inds.cnki') || ids.dbcode == 'WWBD') {
+	else if (ids.dbcode == 'WWBD') {
 		await scrapeDoc(
 			doc,
 			ids,
@@ -444,6 +448,7 @@ async function scrapeWithGetExport(doc, ids, itemKey, inMainland) {
 		// this can make the request more "ordinary" to the server.
 		+ `${inMainland ? '&uniplatform=NZKPT' : ''}`
 		+ '&displaymode=GBTREFER%2Celearning%2CEndNote';
+	Z.debug(postUrl);
 	Z.debug(postData);
 	if (!postUrl || !postData) throw new ReferenceError('没有适合的接口可用');
 	let referText = await requestJSON(
@@ -608,6 +613,10 @@ async function parseRefer(referText, doc, ids, itemKey) {
 				newItem.conferenceName = newItem.publicationTitle;
 				delete newItem.publicationTitle;
 				break;
+			case 'patent':
+				newItem.issueDate = newItem.date;
+				delete newItem.date;
+				break;
 			default:
 				break;
 		}
@@ -682,7 +691,10 @@ async function scrapeDoc(doc, ids, itemKey) {
 
 /* TODO: Compatible with English labels in English version of CNKI. */
 function fixItem(newItem, doc, ids, itemKey) {
-	let labels = new Labels(doc, 'div.doc span.rowtit, #content p, .summary li');
+	Z.debug('fixing item...');
+	let labels = new Labels(doc, 'div.doc span.rowtit, #content p, .summary li.pdfN');
+	Z.debug('get labels:');
+	Z.debug(labels.innerData.map(element => element.innerText));
 	switch (newItem.itemType) {
 		case 'journalArticle':
 			// CN 中国刊物编号，非refworks中的callNumber
