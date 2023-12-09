@@ -9,7 +9,7 @@
 	"inRepository": true,
 	"translatorType": 4,
 	"browserSupport": "gcsibv",
-	"lastUpdated": "2023-12-09 11:47:04"
+	"lastUpdated": "2023-12-09 21:15:07"
 }
 
 /*
@@ -52,8 +52,12 @@ class ID {
 	spaceId(url) {
 		this.filename = tryMatch(url, /-([A-Z\d]+)\./, 1);
 		this.dbcode = tryMatch(url, /\/([A-Z]{4})TOTAL-/, 1);
-		this.dbname = `${this.dbcode}LAST${tryMatch(this.filename, /[A-Z](\d{4})/, 1)}`;
-		this.url = url;
+		this.dbname = `${this.dbcode}AUTO${tryMatch(this.filename, /[A-Z](\d{4})/, 1)}`;
+		this.url = 'https://kns.cnki.net/KCMS/detail/detail.aspx?'
+			+ `dbcode=${this.dbcode}`
+			+ `&dbname=${this.dbname}`
+			+ `&filename=${this.filename}`
+			+ `&v=`;
 	}
 
 
@@ -172,7 +176,10 @@ class ID {
 
 function detectWeb(doc, url) {
 	Z.debug("----------------CNKI 2023-12-09 19:47:00------------------");
-	let ids = new ID(doc, url);
+	let ids = url.includes('www.cnki.com.cn')
+		// CNKI space
+		? new ID(url)
+		: new ID(doc, url);
 	Z.debug('detect ids:');
 	Z.debug(ids);
 	const multiplePattern = [
@@ -312,7 +319,7 @@ function getSearchResults(doc, url, checkOnly) {
 async function doWeb(doc, url) {
 	// "NZKPT" is marked as Chinese Mainland.
 	// Because CNKI has different APIs inside and outside Chinese Mainland, it needs to be differentiated.
-	const inMainland = doc.querySelector('a[href*="NZKPT"]') || doc.querySelector('a[href*="DKCT"]');
+	const inMainland = doc.querySelector('a[href*="NZKPT"], a[href*="DKCT"], a[href*="cnkispace"]');
 	let ids = new ID(doc, url);
 
 	/*
@@ -891,7 +898,7 @@ class Labels {
 		};
 		let labelElement = this.innerData.find(element => test(element, label));
 		return labelElement
-		// If the text content of the next element matches the pattern of the label, then the content of this label is actually in the same element as the label itself.
+			// If the text content of the next element matches the pattern of the label, then the content of this label is actually in the same element as the label itself.
 			? labelElement.nextElementSibling && !/^[\s[【]+.*?[】\]\s]+[:：\s]*/.test(labelElement.nextElementSibling.innerText)
 				? ZU.trimInternal(labelElement.nextElementSibling.innerText)
 				: ZU.trimInternal(labelElement.innerText).replace(new RegExp(`^[\\s[【]*${label}[】\\]:：\\s]*`), '')
@@ -1776,6 +1783,61 @@ var testCases = [
 				"status": "现行",
 				"type": "国家标准",
 				"url": "https://kns.cnki.net/KCMS/detail/detail.aspx?dbcode=SCSF&dbname=SCSF&filename=SCSF00058274&v=",
+				"attachments": [
+					{
+						"title": "Full Text CAJ",
+						"mimeType": "application/caj",
+						"url": ""
+					}
+				],
+				"tags": [],
+				"notes": [],
+				"seeAlso": []
+			}
+		]
+	},
+	{
+		"type": "web",
+		"url": "https://www.cnki.com.cn/Article/CJFDTOTAL-ZNJJ202310008.htm",
+		"items": [
+			{
+				"itemType": "journalArticle",
+				"title": "“两山”理念的有效载体与实践：林下经济的经济效应、环境效应及其协同逻辑",
+				"creators": [
+					{
+						"firstName": "",
+						"lastName": "吴伟光",
+						"creatorType": "author",
+						"fieldMode": 1
+					},
+					{
+						"firstName": "",
+						"lastName": "许恒",
+						"creatorType": "author",
+						"fieldMode": 1
+					},
+					{
+						"firstName": "",
+						"lastName": "王凤婷",
+						"creatorType": "author",
+						"fieldMode": 1
+					},
+					{
+						"firstName": "",
+						"lastName": "熊立春",
+						"creatorType": "author",
+						"fieldMode": 1
+					}
+				],
+				"date": "2023",
+				"abstractNote": "林下经济是生态文明建设背景下推进山区绿色高质量发展、实现“两山”理念的重要载体。本文基于里昂惕夫生产函数和最优生产决策理论刻画林下经济的经济效应、环境效应及其协同的理论模型，并通过对典型案例县的研究，对林下经济的经济效应与环境效应协同发展的理论机制加以印证。研究发现：第一，林下经济经营中，给定其他条件不变，当劳动力投入效率增加时，劳动力投入先增加后降低、林地投入单调递增，林下经济的经济价值也是单调递增，而林下经济的生态价值先增加后降低，林下经济的经济价值和生态价值总和递增；第二，进一步基于扩展模型的分析发现，在适度经营规模下，林下经济产生生态反馈效应，经营主体不再单纯追求经济利润最大化，而是通过降低林地要素的投入来提高林地资源的生态反馈效应，从而提升环境效应，最终实现经济效应和环境效应协同发展；第三，浙江省松阳县的案例剖析表明，在政府的合理扶持下，依靠适度规模经营、生态化种植和三产融合能够实现林下经济的经济效应与环境效应协同发展。因此，林下经济作为“两山”理念的有效载体，应积极推广，通过科学有效经营，能够实现经济效应和环境效应的协同增长。",
+				"archiveLocation": "CNKI",
+				"issue": "10",
+				"language": "zh-CN",
+				"libraryCatalog": "CNKI",
+				"pages": "158-174",
+				"publicationTitle": "中国农村经济",
+				"url": "https://kns.cnki.net/KCMS/detail/detail.aspx?dbcode=CJFD&dbname=CJFDAUTO2023&filename=ZNJJ202310008&v=",
 				"attachments": [
 					{
 						"title": "Full Text CAJ",
