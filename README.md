@@ -4,7 +4,7 @@
 
 - [x] CNKI
 - [x] Dangdang
-- [ ] Duxiu
+- [x] Duxiu
 - [ ] GFSOSO
 - [ ] National Public Service Platform for Standards Information - China
 - [ ] Ncpssd
