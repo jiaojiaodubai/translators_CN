@@ -9,7 +9,7 @@
 	"inRepository": true,
 	"translatorType": 4,
 	"browserSupport": "gcsibv",
-	"lastUpdated": "2023-12-08 09:51:42"
+	"lastUpdated": "2023-12-09 07:40:16"
 }
 
 /*
@@ -40,11 +40,15 @@ class ID {
 		if (doc && url) {
 			this.commonId(doc, url);
 		}
+		// For cases where there is only one parameter, what is passed in is actually a URL
 		else if (doc) {
 			this.spaceId(doc);
 		}
 	}
 
+
+	/* ID initialization method suitable for CNKI space */
+	// e.g. https://www.cnki.com.cn/Article/CJFDTOTAL-CXKJ202311006.htm
 	spaceId(url) {
 		this.filename = tryMatch(url, /-([A-Z\d]+)\./, 1);
 		this.dbcode = tryMatch(url, /\/([A-Z]{4})TOTAL-/, 1);
@@ -52,6 +56,8 @@ class ID {
 		this.url = url;
 	}
 
+
+	/* ID initialization method suitable for ordinary CNKI */
 	commonId(doc, url) {
 		let frame = {
 			dbname: {
@@ -165,7 +171,7 @@ class ID {
 // var debugMode = false;
 
 function detectWeb(doc, url) {
-	Z.debug("----------------CNKI 2023-12-08 17:51:35------------------");
+	Z.debug("----------------CNKI 2023-12-09 15:40:12------------------");
 	let ids = new ID(doc, url);
 	Z.debug('detect ids:');
 	Z.debug(ids);
@@ -209,7 +215,7 @@ function detectWeb(doc, url) {
 	// #contentPanel for journal/yearbook navigation,
 	// .main_sh for oldversion,
 	// .resault-cont for CNKI space
-	// #content for geology version https://dizhi.cnki.net/
+	// #content for geology version
 	let searchResult = doc.querySelector('#ModuleSearchResult, #contentPanel, .main_sh, .resault-cont, #content');
 	if (searchResult) {
 		Z.monitorDOMChanges(searchResult, { childList: true, subtree: true });
@@ -217,10 +223,12 @@ function detectWeb(doc, url) {
 	if (ids.toBoolean()) {
 		return ids.toItemtype();
 	}
+	// e.g. https://thinker.cnki.net/bookstore/book/bookdetail?bookcode=9787111520269000&type=book
 	else if (url.includes('book/bookdetail')) {
 		// 知网心可图书馆，CNKI thingker
 		return 'book';
 	}
+	// e.g https://thinker.cnki.net/BookStore/chapter/chapterdetail?bookcode=9787111520269000_174&type=chapter#div6
 	else if (url.includes('chapter/chapterdetail')) {
 		// 知网心可图书馆，CNKI thingker
 		return 'bookSection';
@@ -235,8 +243,6 @@ function detectWeb(doc, url) {
 
 function getSearchResults(doc, url, checkOnly) {
 	var items = {};
-	// uncomment the next line to confirm that the translator has been successfully updated when debugging in the browser
-	// items.debug = 'debug with CNKI.js v 2023120518001';
 	var found = false;
 	var searchTypes = [
 
@@ -403,6 +409,7 @@ async function scrape(doc, url = doc.location.href, itemKey, inMainland) {
 	}
 }
 
+/* API from "cite" button */
 async function scrapeWithGetExport(doc, ids, itemKey, inMainland) {
 	Z.debug('use API GetExport');
 	// To avoid triggering anti crawlers due to frequent requests,
@@ -472,6 +479,7 @@ async function scrapeWithGetExport(doc, ids, itemKey, inMainland) {
 	await parseRefer(referText, doc, ids, itemKey);
 }
 
+/* API from "Check - Export citations" */
 async function scrapeWithShowExport(itemKeys, inMainland) {
 	var fileNames = itemKeys.map(element => element.cookieName);
 	Z.debug('use API showExport');
@@ -642,15 +650,9 @@ async function scrapeDoc(doc, ids, itemKey) {
 	}
 	newItem.title = newItem.title.replace(/MT翻译$/, '');
 
-	/* Click to get a full abstract in a single article page */
-	let detailBtn = doc.querySelector('span a[id*="ChDivSummaryMore"]');
-	if (detailBtn) detailBtn.click();
-	// 'div.abstract-text' is usually found on old versions of CNKI or oversea CNKI.
-	newItem.abstractNote = text(doc, 'span#ChDivSummary, div.abstract-text');
-
 	/* creators */
 	var creators = [
-		// Do not use comma separated collectors, as there may be duplicate code that is difficult to filter
+		// Do not use comma separated selector, as there may be duplicate code that is difficult to filter
 		Array.from(doc.querySelectorAll('#authorpart span'))
 			// Clear footnote labels for author names
 			.map(element => element.textContent.trim().replace(/[0-9,;，；]/g, '')),
@@ -692,6 +694,7 @@ async function scrapeDoc(doc, ids, itemKey) {
 /* TODO: Compatible with English labels in English version of CNKI. */
 function fixItem(newItem, doc, ids, itemKey) {
 	Z.debug('fixing item...');
+	// "#content p, .summary li.pdfN" only found on geology version
 	let labels = new Labels(doc, 'div.doc span.rowtit, #content p, .summary li.pdfN');
 	Z.debug('get labels:');
 	Z.debug(labels.innerData.map(element => element.innerText));
@@ -728,9 +731,13 @@ function fixItem(newItem, doc, ids, itemKey) {
 		default:
 			break;
 	}
-	newItem.abstractNote = newItem.abstractNote
-		|| text(doc, '.abstract-text')
-		|| labels.getWith('摘要');
+
+	/* Click to get a full abstract in a single article page */
+	let detailBtn = doc.querySelector('a[id*="ChDivSummaryMore"]');
+	if (detailBtn) detailBtn.click();
+	// 'div.abstract-text' is usually found on old versions of CNKI or oversea CNKI.
+	newItem.abstractNote = text(doc, 'span#ChDivSummary, div.abstract-text')
+		|| labels.getWith('摘要') || newItem.abstractNote;
 	newItem.abstractNote = newItem.abstractNote
 		.replace(/\s*[\r\n]\s*/g, '\n')
 		.replace(/&lt;.*?&gt;/g, '')
@@ -740,10 +747,10 @@ function fixItem(newItem, doc, ids, itemKey) {
 	let url = itemKey.url || ids.url;
 	newItem.url = /kcms2/i.test(url)
 		? 'https://kns.cnki.net/KCMS/detail/detail.aspx?'
-			+ `dbcode=${ids.dbcode}`
-			+ `&dbname=${ids.dbname}`
-			+ `&filename=${ids.filename}`
-			+ `&v=`
+		+ `dbcode=${ids.dbcode}`
+		+ `&dbname=${ids.dbname}`
+		+ `&filename=${ids.filename}`
+		+ `&v=`
 		: url;
 	// CNKI DOI
 	if (!newItem.DOI) newItem.DOI = labels.getWith('DOI');
@@ -881,6 +888,7 @@ class Labels {
 		};
 		let labelElement = this.innerData.find(element => test(element, label));
 		return labelElement
+		// If the text content of the next element matches the pattern of the label, then the content of this label is actually in the same element as the label itself.
 			? labelElement.nextElementSibling && !/^[\s[【]+.*?[】\]\s]+[:：\s]*/.test(labelElement.nextElementSibling.innerText)
 				? ZU.trimInternal(labelElement.nextElementSibling.innerText)
 				: ZU.trimInternal(labelElement.innerText).replace(new RegExp(`^[\\s[【]*${label}[】\\]:：\\s]*`), '')
