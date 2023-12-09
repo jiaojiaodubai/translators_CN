@@ -34,7 +34,7 @@
 - [ ] Douban
 - [x] dpaper
 - [ ] GFSOSO
-- [ ] Jd
+- [x] Jd
 - [ ] translators_CN\National Public Service Platform for Standards Information
 - [ ] National Standards Open System - China
 - [ ] Nlc.cn
