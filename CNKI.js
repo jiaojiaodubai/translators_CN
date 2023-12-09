@@ -9,7 +9,7 @@
 	"inRepository": true,
 	"translatorType": 4,
 	"browserSupport": "gcsibv",
-	"lastUpdated": "2023-12-09 07:40:16"
+	"lastUpdated": "2023-12-09 11:47:04"
 }
 
 /*
@@ -171,7 +171,7 @@ class ID {
 // var debugMode = false;
 
 function detectWeb(doc, url) {
-	Z.debug("----------------CNKI 2023-12-09 15:40:12------------------");
+	Z.debug("----------------CNKI 2023-12-09 19:47:00------------------");
 	let ids = new ID(doc, url);
 	Z.debug('detect ids:');
 	Z.debug(ids);
@@ -444,8 +444,11 @@ async function scrapeWithGetExport(doc, ids, itemKey, inMainland) {
 
 	// During debugging, may manually throw errors to guide the program to run inward
 	// throw ReferenceError;
+
+	// TODO: use (https?.*)(?:https?) check whether in a webVPN environment
+	// e.g. https://ras.cdutcm.lib4s.com:7080/s/net/cnki/kns/G.https/dm/API/GetExport?uniplatform=NZKPT
 	let postUrl = inMainland
-		? 'https://kns.cnki.net/dm/API/GetExport?uniplatform=NZKPT'
+		? `${/https?.*https?/.test(ids.url) ? tryMatch(ids.url, /https?.*https?/) : 'https://kns.cnki.net'}/dm/API/GetExport?uniplatform=NZKPT`
 		: ids.url.includes('//chn.')
 			// https://chn.oversea.cnki.net is an oversea CNKI site with Chinese language.
 			? 'https://chn.oversea.cnki.net/kns8/manage/APIGetExport'
