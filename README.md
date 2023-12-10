@@ -25,7 +25,7 @@
 - [x] Wenjin
 - [x] xiaoyuzhoufm
   - 建议添加测试用例。
-- [ ] Zhihu
+- [x] Zhihu
 
 ## `ZU.do*()`遗留
 
@@ -59,7 +59,7 @@
 - [x] SuperLib
 - [x] Wanfang Data
 - [x] Wenjin
-- [ ] xiaoyuzhoufm
+- [x] xiaoyuzhoufm
 
 ## 其他
 
