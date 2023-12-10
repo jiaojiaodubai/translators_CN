@@ -14,6 +14,7 @@
 - [x] Nlc.cn
   - 备注：建议添加测试用例。
 - [ ] People's Daily
+  - 暂缓，网站有较大改动，需要原作者重新适
 - [x] ProQuestCN Thesis
   - 备注：建议添加测试用例。
 - [x] Soopat
