@@ -32,10 +32,14 @@
 - [x] Bilibili
 - [x] Dangdang
 - [ ] Douban
+  - 暂缓，有未合并的pull request。
 - [x] dpaper
 - [ ] GFSOSO
+  - 暂缓，缺少测试案例，无法校对。
+  - 暂缓，网站有较大改动，需要原作者重新适配。
 - [x] Jd
 - [ ] translators_CN\National Public Service Platform for Standards Information
+  - 暂缓，网站有较大改动，需要原作者重新适配。
 - [ ] National Standards Open System - China
 - [ ] Nlc.cn
 - [ ] People's Daily
