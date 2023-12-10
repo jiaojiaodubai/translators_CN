@@ -53,7 +53,7 @@ function scrape(doc, url) {
 	item.complete();
 }
 
-function detectWeb(doc, url) {
+function detectWeb(doc, _url) {
 	const ogType = doc.head.querySelector('meta[property="og:type"]');
 	if (ogType && ogType.content === "article") {
 		return "blogPost";

@@ -20,7 +20,8 @@
   - 备注：缺少帐号，无法测试。
 - [x] SuperLib
 - [x] Wanfang Data
-- [ ] Weixin
+- [x] Weixin
+  - 建议添加测试用例。
 - [ ] Wenjin
 - [ ] xiaoyuzhoufm
 - [ ] Zhihu
@@ -56,7 +57,6 @@
 - [ ] Spc.org.cn
 - [x] SuperLib
 - [x] Wanfang Data
-- [ ] Weixin
 - [ ] Wenjin
 - [ ] xiaoyuzhoufm
 
