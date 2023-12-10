@@ -28,10 +28,10 @@
 	***** END LICENSE BLOCK *****
 */
 
-function detectWeb(doc, url) {
+function detectWeb(_doc, _url) {
 	return 'podcast';
 }
-function doWeb(doc, url) {
+function doWeb(doc, _url) {
 	const item = new Zotero.Item("podcast");
 	const jsonld = doc.head.querySelector('script[name="schema:podcast-show"]').textContent;
 	const data = JSON.parse(jsonld);

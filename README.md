@@ -23,7 +23,8 @@
 - [x] Weixin
   - 建议添加测试用例。
 - [x] Wenjin
-- [ ] xiaoyuzhoufm
+- [x] xiaoyuzhoufm
+  - 建议添加测试用例。
 - [ ] Zhihu
 
 ## `ZU.do*()`遗留
