@@ -9,7 +9,7 @@
 	"inRepository": true,
 	"translatorType": 4,
 	"browserSupport": "gcsibv",
-	"lastUpdated": "2023-12-09 21:15:07"
+	"lastUpdated": "2023-12-10 07:48:12"
 }
 
 /*
@@ -175,7 +175,7 @@ class ID {
 // var debugMode = false;
 
 function detectWeb(doc, url) {
-	Z.debug("----------------CNKI 2023-12-09 19:47:00------------------");
+	Z.debug("----------------CNKI 2023-12-10 15:45:38------------------");
 	let ids = url.includes('www.cnki.com.cn')
 		// CNKI space
 		? new ID(url)
@@ -684,7 +684,9 @@ async function scrapeDoc(doc, ids, itemKey) {
 		+ getPureText(doc.querySelector('.summary .detailLink'))
 		+ labels.getWith(['作者基本信息', '出版信息']);
 	Z.debug(`puinfo:${pubInfo}`);
-	newItem.publicationTitle = tryMatch(pubInfo, /(.*?)[.,]/, 1) || labels.getWith('报纸网站');
+	newItem.publicationTitle = tryMatch(pubInfo, /(.*?)[.,]/, 1)
+		|| labels.getWith('报纸网站')
+		|| '';
 	newItem.date = tryMatch(pubInfo, /(\d+),/, 1)
 		|| tryMatch(pubInfo, /(\d{4})年?/, 1)
 		|| labels.getWith(['发布日期', '发布单位', '报纸日期']);
@@ -696,7 +698,8 @@ async function scrapeDoc(doc, ids, itemKey) {
 
 	/* else fields */
 	newItem.pages = tryMatch(text(doc, 'div.doc p.total-inform span:nth-child(2)'), /[\d-,+]*/)
-		|| labels.getWith(['Pages', '版号']);
+		|| labels.getWith(['Pages', '版号'])
+		|| '';
 	newItem = Object.assign(newItem, fixItem(newItem, doc, ids, itemKey));
 	newItem.complete();
 }
@@ -747,14 +750,16 @@ function fixItem(newItem, doc, ids, itemKey) {
 	if (detailBtn) detailBtn.click();
 	// 'div.abstract-text' is usually found on old versions of CNKI or oversea CNKI.
 	newItem.abstractNote = text(doc, 'span#ChDivSummary, div.abstract-text')
-		|| labels.getWith('摘要') || newItem.abstractNote;
+		|| labels.getWith('摘要')
+		|| newItem.abstractNote
+		|| '';
 	newItem.abstractNote = newItem.abstractNote
 		.replace(/\s*[\r\n]\s*/g, '\n')
 		.replace(/&lt;.*?&gt;/g, '')
 		.replace(/^＜正＞/, '');
 	if (itemKey.cite) newItem.extra += `\ncite: ${itemKey.cite}`;
 	// Build a shorter url
-	let url = itemKey.url || ids.url;
+	let url = itemKey.url || ids.url || '';
 	newItem.url = /kcms2/i.test(url)
 		? 'https://kns.cnki.net/KCMS/detail/detail.aspx?'
 		+ `dbcode=${ids.dbcode}`
