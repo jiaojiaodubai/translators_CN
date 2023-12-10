@@ -6,6 +6,8 @@
 - [x] Dangdang
 - [x] Duxiu
 - [ ] GFSOSO
+  - 暂缓，缺少测试用例，无法校对。
+  - 暂缓，网站有较大改动，需要原作者重新适配。
 - [ ] National Public Service Platform for Standards Information - China
   - 暂缓，网站有较大改动，需要原作者重新适配。
 - [x] Ncpssd
@@ -14,7 +16,8 @@
 - [ ] People's Daily
 - [x] ProQuestCN Thesis
   - 备注：建议添加测试用例。
-- [ ] Soopat
+- [x] Soopat
+  - 备注：缺少帐号，无法测试。
 - [x] SuperLib
 - [ ] Wanfang Data
 - [ ] Weixin
@@ -26,7 +29,9 @@
 
 - [x] Baidu Scholar
 - [ ] GFSOSO
-- [ ] Soopat
+  - 暂缓，缺少测试用例，无法校对。
+  - 暂缓，网站有较大改动，需要原作者重新适配。
+- [x] Soopat
 - [ ] Wenjin
 
 ## 未使用`async`和`awaite`执行异步操作

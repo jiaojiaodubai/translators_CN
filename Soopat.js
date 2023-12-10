@@ -9,7 +9,7 @@
 	"inRepository": true,
 	"translatorType": 4,
 	"browserSupport": "gcsibv",
-	"lastUpdated": "2023-03-28 03:27:19"
+	"lastUpdated": "2023-12-10 10:02:09"
 }
 
 /*
@@ -66,12 +66,13 @@ function detectWeb(doc, url) {
 	else if (url.includes("Patent")) {
 		return "patent";
 	}
+	return false;
 }
 
 async function scrape(doc, url, loginStatus) {
 	var newItem = new Zotero.Item("patent");
 	newItem.url = url;
-	var detailtitle, title, appNo, appDate, ab, legalStatus;
+	var detailtitle, title, appNo, appDate, ab, legalStatus, patentNo;
 	if (url.includes("pro.soopat.com")) { // Soopat Pro
 		detailtitle = ZU.xpath(doc, "//div[@class='detailtitle']")[0];
 		// Z.debug(doc.querySelector("table").innerText);
@@ -81,8 +82,8 @@ async function scrape(doc, url, loginStatus) {
 		newItem.patentNumber = patentNo;
 		newItem.legalStatus = innerText(detailtitle, "div.lnkLegal");
 		let tmpStr = innerText(detailtitle, "div.gray");
-		if (tmpStr.match(/申请号：([\w\.]+)/)) newItem.applicationNumber = tmpStr.match(/申请号：([\w\.]+)/)[1];
-		if (tmpStr.match(/申请日：([\d\-]+)/)) newItem.filingDate = tmpStr.match(/申请日：([\d\-]+)/)[1];
+		if (tmpStr.match(/申请号：([\w.]+)/)) newItem.applicationNumber = tmpStr.match(/申请号：([\w.]+)/)[1];
+		if (tmpStr.match(/申请日：([\d-]+)/)) newItem.filingDate = tmpStr.match(/申请日：([\d-]+)/)[1];
 		var tableRows = ZU.xpath(doc, "//table[@class='datainfo']//tr");
 		for (let row of tableRows) {
 			let tmp = row.innerText.trim().split("：");
@@ -144,7 +145,7 @@ async function scrape(doc, url, loginStatus) {
 		var downlink = ZU.xpath(doc, "//div[@class='mix']/a[2]")[0].getAttribute('onclick').split("'")[1];
 		// Z.debug(downlink);
 		if (loginStatus) {
-			getPDF(downlink, newItem);
+			await getPDF(downlink, newItem);
 		}
 	}
 	newItem.complete();
@@ -158,14 +159,9 @@ async function doWeb(doc, url) {
 		var items = getSearchItems(doc, itemInfos);
 		var selectedItems = await Z.selectItems(items);
 		if (selectedItems) {
-			var urls = Object.keys(selectedItems);
-			Z.debug(urls[0]);
-			await Promise.all(
-				urls.map(
-					(url) => {
-						requestDocument(url).then(doc => scrape(doc, url, loginStatus));
-					})
-			);
+			for (let url in selectedItems) {
+				await requestDocument(url).then(doc => scrape(doc, url, loginStatus));
+			}
 		}
 	}
 	else {
@@ -207,18 +203,14 @@ function detectLogin(doc) {
 }
 
 
-function getPDF(downlink, newItem) {
-	ZU.doGet(downlink, function (text) {
-		// Z.debug(text);
-		var parser = new DOMParser();
-		var downHtml = parser.parseFromString(text, 'text/html');
-		var link = ZU.xpath(downHtml, "//table/tbody/tr[3]/td[4]/a")[0];
-		newItem.attachments = [{
-			title: "Full Text PDF",
-			mimeType: "application/pdf",
-			url: link.href
-		}];
-	});
+async function getPDF(downlink, newItem) {
+	let doc = await requestDocument(downlink);
+	var link = ZU.xpath(doc, "//table/tbody/tr[3]/td[4]/a")[0];
+	newItem.attachments = [{
+		title: "Full Text PDF",
+		mimeType: "application/pdf",
+		url: link.href
+	}];
 }/** BEGIN TEST CASES **/
 var testCases = [
 	{
