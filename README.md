@@ -9,7 +9,8 @@
 - [ ] National Public Service Platform for Standards Information - China
   - 暂缓，网站有较大改动，需要原作者重新适配。
 - [x] Ncpssd
-- [ ] Nlc.cn
+- [x] Nlc.cn
+  - 备注：建议添加测试用例。
 - [ ] People's Daily
 - [ ] ProQuestCN Thesis
 - [ ] Soopat
@@ -42,7 +43,6 @@
 - [ ] translators_CN\National Public Service Platform for Standards Information
   - 暂缓，网站有较大改动，需要原作者重新适配。
 - [ ] National Standards Open System - China
-- [ ] Nlc.cn
 - [ ] People's Daily
 - [ ] PKULaw
 - [ ] ProQuestCN Thesis

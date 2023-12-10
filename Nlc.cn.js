@@ -35,12 +35,7 @@
 	***** END LICENSE BLOCK *****
 */
 
-// eslint-disable-next-line
-function attr(docOrElem,selector,attr,index){var elem=index?docOrElem.querySelectorAll(selector).item(index):docOrElem.querySelector(selector);return elem?elem.getAttribute(attr):null;}function text(docOrElem,selector,index){var elem=index?docOrElem.querySelectorAll(selector).item(index):docOrElem.querySelector(selector);return elem?elem.textContent:null;}function trim(content){return content.replace(/^[\xA0\s]+/gm, '').replace(/[\xA0\s]+$/gm, '').replace(/\n+/g, '\n').replace(/:\n+/g, ': ').replace(/]\n/g, ']').replace(/】\n/g, '】').replace(/\n\/\n/g, '/')}
-
-// https://aurimasv.github.io/z2csl/typeMap.xml#map-statute
-
-function detectWeb(doc, url) {
+function detectWeb(_doc, _url) {
 	return 'statute';
 }
 
