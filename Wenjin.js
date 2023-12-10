@@ -9,7 +9,7 @@
 	"inRepository": true,
 	"translatorType": 4,
 	"browserSupport": "gcsibv",
-	"lastUpdated": "2020-08-29 14:11:42"
+	"lastUpdated": "2023-12-10 12:35:16"
 }
 
 /*
@@ -35,28 +35,11 @@
 	***** END LICENSE BLOCK *****
 */
 
-function processURL(urls) {
-	//Z.debug(urls);
-	var url = urls.pop();
-	//Z.debug(url);
-	//ZU.doGet(url, function(text) {
-	ZU.processDocuments(url, function (doc) {
-		//Z.debug(text);
-		//var parser = new DOMParser();
-		//var doc = parser.parseFromString(text, "text/html");
-		//Z.debug(doc);
-		scrape_multiple(doc, url);
-		if (urls.length) {
-			processURL(urls);
-		}
-	});
-}
-
 function detectWeb(doc, url) {
 	if (url.includes('/search/showDocDetails')) {
 		return detectType(doc);
 	}
-	else if (url.includes("search/doSearch?query")) {
+	else if (url.includes("search/doSearch?query") && getSearchResults(doc, true)) {
 		return 'multiple';
 	}
 	return false;
@@ -74,341 +57,121 @@ function detectType(doc) {
 		专著: "book",
 		报告: "report"
 	};
-	var type = ZU.xpath(doc, "//span[@class='book_val']");
-	if (type.length) {
-		Z.debug(type[0].textContent);
-		return itemType[type[0].textContent];
-	}
-	else {
-		return false;
-	}
+	return itemType[text(doc, 'span.book_val')];
 }
-
 
 function getSearchResults(doc, checkOnly) {
 	var items = {};
 	var found = false;
-	var rows = ZU.xpath(doc, "//div[@class='article_item']");
-	Z.debug(rows.length);
-	if (checkOnly) {
-		return rows.length ? 'multiple' : false;
-	}
-	for (let i = 0; i < rows.length; i++) {
-		//Z.debug(rows[i])
-		let title = ZU.xpath(rows[i], ".//div[@class='book_name']/a")[0];
-		//Z.debug(title.textContent);
-		let click = title.getAttribute('onclick').split("'");
-		//Z.debug(click);
+	var rows = doc.querySelectorAll('div.article_item div.book_name > a');
+	for (let row of rows) {
+		let click = row.getAttribute('onclick').split("'");
+		// Z.debug(click);
 		let href = "http://find.nlc.cn/search/showDocDetails?docId="
 			+ click[3]
 			+ "&dataSource="
 			+ click[5]
 			+ "&query="
 			+ encodeURI(click[7]);
-		Z.debug(href);
-		title = ZU.trimInternal(title.textContent);
+		// Z.debug(href);
+		let title = ZU.trimInternal(row.textContent);
 		if (!href || !title) continue;
+		if (checkOnly) return true;
 		found = true;
-		items[href] = (i + 1) + " " + title;
-		//Z.debug(items[href]);
+		items[href] = title;
 	}
 	return found ? items : false;
 }
 
-function doWeb(doc, url) {
-	if (detectWeb(doc, url) == "multiple") {
-		Zotero.selectItems(getSearchResults(doc, false), function (items) {
-			if (items) {
-				//Z.debug(items);
-				//items的keys是网址
-				//items的value是title
-				//Object.keys返回items对象可枚举属性的字符串数组,传入对象，返回属性名即网址
-				processURL(Object.keys(items));
-			}
-		});
+async function doWeb(doc, url) {
+	if (detectWeb(doc, url) == 'multiple') {
+		let items = await Zotero.selectItems(getSearchResults(doc, false));
+		if (!items) return;
+		for (let url of Object.keys(items)) {
+			await scrape(await requestDocument(url));
+		}
 	}
 	else {
-		scrape(doc, url);
+		await scrape(doc, url);
 	}
 }
 
-function scrape(doc, url) {
-	var type = detectType(doc);
-	var newItem = new Zotero.Item(type);
-	var detailA = ZU.xpath(doc, "//div[@class='book_wr']")[0].innerText;
-	Z.debug(detailA);
-	//Z.debug(detailA.replace(/\s*/g,""));
-	var detailB = ZU.xpath(doc, "//div[@id='detail-info']")[0].innerText;
-	Z.debug(detailB);
-	var details = (detailA + "\n" + detailB).split("\n");
-	Z.debug(details);
-	var title = ZU.trimInternal(details[0]);
-	
-	//Z.debug(title);
-	newItem.title = title;
-	var date = details.filter(ele => ele.startsWith("出版发行时间：") || ele.startsWith("论文授予时间"));
-	
-	if (date.length) {
-		newItem.date = ZU.trimInternal(date[0].split("：")[1]);
-	}
-	var tags = details.filter(ele => ele.startsWith("关键词"));
-	if (tags.length) {
-		newItem.tags = ZU.trimInternal(tags[0]).split("： ")[1].split(/[ -;]/);
-	}
-	var tagsEN = details.filter(ele => ele.startsWith("英文关键词"));
-	if (tagsEN.length) {
-		newItem.tags = ZU.trimInternal(tagsEN[0]).split("： ")[1].split(/;/);
-	}
-	var place = details.filter(ele => ele.startsWith("出版、发行地"));
-	if (place.length) {
-		newItem.place = place[0].split("： ")[1];
-	}
-	var pages = details.filter(ele => ele.startsWith("载体形态") || ele.startsWith("页 ："));
-	
-	if (pages.length) {
-		if (type === "book" || type === "thesis")//book和thesis的tiem中页数的关键词是numPages,其他类型是pages
-			newItem.numPages = pages[0].split("： ")[1].replace("页", "");
-			
-		else {
-			newItem.pages = pages[0].split("： ")[1].replace("页", "");
+async function scrape(doc, url = doc.location.href) {
+	var itemType = detectType(doc);
+	var newItem = new Zotero.Item(itemType);
+	var data = {
+		innerData: Object.fromEntries(Array.from(doc.querySelectorAll('.book_item'))
+			.map(element => [text(element, 'span:first-child').replace(/\s/g, ''), trimLabel(element)])),
+		getWith: function () {
+			let results = [];
+			for (let i = 0; i < arguments.length; i++) {
+				results.push(this.innerData[`${arguments[i]}：`]);
+			}
+			let result = results.find(element => element);
+			return result
+				? result
+				: '';
 		}
+	};
+	Z.debug(data);
+	newItem.title = text(doc, '.book_name');
+	newItem.date = data.getWith('出版发行时间', '论文授予时间');
+	newItem.publicationTitle = data.getWith('刊名');
+	let tags = data.getWith('关键词', '中文关键词') + data.getWith('英文关键词');
+	tags = tags.split(/[，；,;]/).filter(tag => tag);
+	tags.forEach(tag => newItem.tags.push(tag));
+	newItem.place = data.getWith('出版、发行地');
+	let page = data.getWith('载体形态', '页', '印刷页码').replace(/页$/, '');
+	if (itemType === "book" || itemType === "thesis") {
+		newItem.numPages = page;
 	}
-	var publisher = details.filter(ele => ele.startsWith("出版、发行者"));
-	if (publisher.length) {
-		newItem.publisher = publisher[0].split("： ")[1];
+	else {
+		newItem.pages = page;
 	}
-	var authors = details.filter(ele => ele.startsWith("所有责任者") || ele.startsWith("作者："));
-	Z.debug(authors);
-	if (authors.length) {
-		if (/[A-Za-z]/.test(authors[0])) {
-			authors = authors[authors.length - 1].split("： ")[1].split(/[;|，]/);
+	newItem.publisher = data.getWith('出版、发行者');
+	Z.debug(data.getWith('所有责任者', '作者'));
+	data.getWith('所有责任者', '作者').split(/[,;，；]|\s{2}/).forEach((author) => {
+		Z.debug(author);
+		let creatorType = 'author';
+		if (author.endsWith("指导")) {
+			creatorType = "contributor";
 		}
-		else {
-			authors = authors[authors.length - 1].split("： ")[1].split(/[\s，;]+/); // Special comma
-			//Z.debug(authors);
+		newItem.creators.push(ZU.cleanAuthor(author.replace(/[等主编著指导]*$/, ''), creatorType));
+	});
+	newItem.creators.forEach((creator) => {
+		if (/[\u4e00-\u9fa5]/.test(creator.lastName)) {
+			creator.fieldMode = 1;
 		}
-		newItem.creators = handleName(authors);
-		//Z.debug(authors);
-	}
-	
-	var language = details.filter(ele => ele.startsWith("语种"));
-	Z.debug(language);
-	if (language.length) {
-		newItem.language = language[0].split("：")[1];
-	}
-	
-	var note = ZU.xpath(doc, "//div[@class='zy_pp_val']");
-	//Z.debug(note);
-	if (note.length) {
-		//Z.debug("test");
-		if (note[0].innerText.length) {
-			newItem.abstractNote = ZU.trimInternal(note[0].innerText);
-		}
-	}
-
-	var university = details.filter(ele => ele.startsWith("论文授予机构"));
-	if (university.length) {
-		newItem.university = university[0].split("： ")[1];
-	}
-	var abstract = details.filter(ele => ele.startsWith("引文"));
-	if (abstract.length) {
-		newItem.abstractNote = abstract[0].split("：")[1];
-	}
-	var issue = details.filter(ele => ele.startsWith("期"));
-	if (issue.length) {
-		newItem.issue = issue[0].split("：")[1];
-	}
-	var publication = details.filter(ele => ele.startsWith("来源："));
-	if (publication.length) {
-		var tmp = publication[0].split("： ")[1].split(/,/);
-		newItem.publication = tmp[0];
-		tmp.length > 2 ? newItem.journalAbbreviation = tmp[1] : false;
-	}
-	var ISSN = details.filter(ele => ele.startsWith("标识号"));
-	if (ISSN.length) {
-		newItem.ISBN = ISSN[0].split("： ")[1];
-	}
+	});
+	newItem.language = data.getWith('语种');
+	newItem.abstractNote = text(doc, 'div.zy_pp_val') || data.getWith('引文');
+	newItem.university = data.getWith('论文授予机构');
+	newItem.issue = tryMatch(data.getWith('期'), /0?(\d*)/, 1);
+	newItem.ISBN = data.getWith('标识号');
 	newItem.url = url;
 	newItem.complete();
 }
 
-function scrape_multiple(doc, url) {
-	//因multiple情况下使用doGet返回的doc与single情况下不同，故单独处理
-	var type = detectType(doc);
-	var newItem = new Zotero.Item(type);
-	var detailA = ZU.xpath(doc, "//div[@class='book_wr']")[0].innerText;
-	//Z.debug(detailA);
-	//Z.debug(detailA.replace(/\ +/g,""));
-	var detailB = ZU.xpath(doc, "//div[@id='detail-info']")[0].innerText;
-	//Z.debug(detailB);
-	var details = (detailA + "\n" + detailB).split("\n");
-	//Z.debug(details.filter((ele) => !ele.match(/^[ ]*$/)));
-	details = details.filter(ele => !ele.match(/^[ ]*$/));
-	details = details.filter(ele => !ele.match(/^[ \t]*$/));
-	details = details.filter(ele => !ele.match(/^[ ：]*$/));
-	
-	Z.debug(details);
-	var title = ZU.trimInternal(details[0]);
-	//Z.debug(title);
-	newItem.title = title;
-	//var date = details.filter((ele) => ele.startsWith("出版发行时间：") || ele.startsWith("论文授予时间"));
-	var date = details[details.indexOf("出版发行时间：" || "论文授予时间") + 1];
-	//Z.debug(date);
-	if (date.length) {
-		//newItem.date = ZU.trimInternal(date[0].split("：")[1]);
-		newItem.date = ZU.trimInternal(date);
+function trimLabel(element) {
+	if (!element) return '';
+	// Deep copy to avoid affecting the original page.
+	let elementCopy = element.cloneNode(true);
+	if (elementCopy.firstElementChild) {
+		elementCopy.removeChild(elementCopy.firstElementChild);
 	}
-	var tags = details.filter(ele => ele.endsWith("关键词"))[0];
-	if (tags.length) {
-		tags = details[details.indexOf(tags) + 1];
-		newItem.tags = ZU.trimInternal(tags).split(/[ -|;]/);
-	}
-	
-	var tagsEN = details.filter(ele => ele.startsWith("英文关键词"));
-	if (tagsEN.length) {
-		newItem.tags = ZU.trimInternal(tagsEN[0]).split("： ")[1].split(/;/);
-	}
-	var place = details.filter(ele => ele.endsWith("出版、发行地"));
-	if (place.length) {
-		place = details[details.indexOf(place[0]) + 1];
-		newItem.place = ZU.trimInternal(place);
-	}
-	//var pages = details.filter((ele) => ele.startsWith("载体形态") || ele.startsWith("页 ："));
-	var pages = details.filter(ele => ele.endsWith("载体形态") || ele.endsWith("页 ："));
-	Z.debug(pages);
-	if (pages.length) {
-		pages = details[details.indexOf(pages[0]) + 1];
-		newItem.pages = pages.replace("页", "");
-	}
-	
-	var publisher = details.filter(ele => ele.startsWith("出版、发行者"));
-	if (publisher.length) {
-		publisher = details[details.indexOf(publisher[0]) + 1];
-		newItem.publisher = ZU.trimInternal(publisher);
-	}
-	
-	var authors = details.filter(ele => ele.endsWith("所有责任者") || ele.startsWith("作者："));
-	//Z.debug(authors);
-	authors = details[details.indexOf(authors[0]) + 1];
-	//Z.debug(authors);
-	if (authors.length) {
-		if (/[A-Za-z]/.test(authors)) {
-			authors = authors.split(/;/);
-		}
-		else {
-			authors = authors.split(/[\s，;]+/); // Special comma
-			//Z.debug(authors);
-		}
-		newItem.creators = handleName(authors);
-		//Z.debug(authors);
-	}
-	
-	var language = details.filter(ele => ele.endsWith("语种"));
-	if (language.length) {
-		language = details[details.indexOf(language[0]) + 1];
-		newItem.language = ZU.trimInternal(language);
-	}
-	
-	var note = ZU.xpath(doc, "//div[@class='zy_pp_val']");
-	
-	//Z.debug(note);
-	if (note.length) {
-		if (note[0].innerText.length) {
-			newItem.abstractNote = ZU.trimInternal(note[0].innerText);
-		}
-	}
-	
-	var university = details.filter(ele => ele.startsWith("论文授予机构"));
-	if (university.length) {
-		university = details[details.indexOf(university[0]) + 1];
-		newItem.university = ZU.trimInternal(university);
-	}
-	var abstract = details.filter(ele => ele.startsWith("引文"));
-	if (abstract.length) {
-		newItem.abstractNote = abstract[0].split("：")[1];
-	}
-	var issue = details.filter(ele => ele.startsWith("期"));
-	if (issue.length) {
-		newItem.issue = issue[0].split("：")[1];
-	}
-	var publication = details.filter(ele => ele.startsWith("来源："));
-	if (publication.length) {
-		var tmp = publication[0].split("： ")[1].split(/,/);
-		newItem.publication = tmp[0];
-		tmp.length > 2 ? newItem.journalAbbreviation = tmp[1] : false;
-	}
-	var ISBN = details.filter(ele => ele.endsWith("标识号"));
-	//Z.debug(ISBN);
-	ISBN = details[details.indexOf(ISBN[0]) + 1];
-	if (ISBN.length) {
-		//Z.debug(ISBN);
-		Z.debug(ISBN.split(':')[1]);
-		newItem.ISBN = (ISBN.split(':')[1]);
-	}
-	newItem.url = url;
-	newItem.complete();
+	return /(作者)|(关键词)/.test(element.innerText)
+		? elementCopy.innerText.trim()
+		: ZU.trimInternal(elementCopy.innerText);
 }
 
-
-function handleName(authors) {
-	// 有英文
-	var creators = [];
-	for (let author of authors) {
-		var creator = {};
-		var lastSpace = author.lastIndexOf(' ');
-		if (/[A-Za-z]/.test(author) && lastSpace !== -1) {
-			// English
-			creator.firstName = author.slice(0, lastSpace);
-			creator.lastName = author.slice(lastSpace + 1);
-		}
-		else {
-			// Chinese
-			if (authors.contains(author)) {
-				//if (author.endsWith("等") || author.endsWith("著")) {
-				//	author = author.slice(0, author.length -1);
-				//作者姓名可能以"等"、"等编"、"编著"、"主编"、"著"这几种形式结尾
-				if (author.contains("等")) {
-					author = author.slice(0, author.indexOf("等"));
-					//Z.debug(author);
-					// 去除等或著后与其他姓名重名，跳过
-					if (authors.contains(author)) {
-						continue;
-					}
-				}
-				else if (author.contains("主")) {
-					author = author.slice(0, author.indexOf("主"));
-					if (authors.contains(author)) {
-						continue;
-					}
-				}
-				else if (author.contains("编")) {
-					author = author.slice(0, author.indexOf("编"));
-					if (authors.contains(author)) {
-						continue;
-					}
-				}
-				else if (author.contains("著")) {
-					author = author.slice(0, author.indexOf("著"));
-					if (authors.contains(author)) {
-						continue;
-					}
-				}
-			}
-			//Z.debug(author);
-			creator.firstName = author.slice(1);
-			creator.lastName = author.charAt(0);
-			if (author.endsWith("指导")) {
-				creator.creatorType = "contributor";
-			}
-		}
-		creators.push(creator);
-	}
-	return creators;
+function tryMatch(string, pattern, index = 0) {
+	if (!string) return '';
+	let match = string.match(pattern);
+	return (match && match[index])
+		? match[index]
+		: '';
 }
-// TEST URL
-// http://find.nlc.cn/search/showDocDetails?docId=7225006674714026291&dataSource=ucs01,bslw&query=%E4%BF%A1%E7%94%A8
-// http://find.nlc.cn/search/showDocDetails?docId=-8373230212045865087&dataSource=cjfd&query=wgcna
-// http://find.nlc.cn/search/showDocDetails?docId=6614677564794870987&dataSource=wpqk&query=wgcna
+
 /** BEGIN TEST CASES **/
 var testCases = [
 	{
@@ -420,20 +183,30 @@ var testCases = [
 				"title": "天然气水合物气藏开发",
 				"creators": [
 					{
-						"fistName": "平",
-						"lastName": "郭"
+						"firstName": "",
+						"lastName": "郭平",
+						"creatorType": "author",
+						"fieldMode": 1
 					},
 					{
-						"fistName": "士鑫",
-						"lastName": "刘"
+						"firstName": "",
+						"lastName": "刘士鑫",
+						"creatorType": "author",
+						"fieldMode": 1
 					},
 					{
-						"fistName": "建芬",
-						"lastName": "杜"
+						"firstName": "",
+						"lastName": "杜建芬",
+						"creatorType": "author",
+						"fieldMode": 1
 					}
 				],
 				"date": "2006",
+				"ISBN": "9787502156039",
+				"abstractNote": "本书在介绍水合物研究现状、基本性质、水合物相态基础上，系统论述了水合物气藏的形成与勘探技术、钻井与取样、开采方法、开发前景，以及天然气水合物技术的应用。",
+				"language": "Chinese 汉语",
 				"libraryCatalog": "Wenjin",
+				"numPages": "187",
 				"place": "北京",
 				"publisher": "石油工业出版社",
 				"url": "http://find.nlc.cn/search/showDocDetails?docId=-4203196484494800823&dataSource=ucs01&query=%E6%B0%B4%E5%90%88%E7%89%A9",
@@ -444,6 +217,115 @@ var testCases = [
 					},
 					{
 						"tag": "气田开发"
+					}
+				],
+				"notes": [],
+				"seeAlso": []
+			}
+		]
+	},
+	{
+		"type": "web",
+		"url": "http://find.nlc.cn/search/showDocDetails?docId=7225006674714026291&dataSource=ucs01,bslw&query=%E4%BF%A1%E7%94%A8",
+		"items": [
+			{
+				"itemType": "thesis",
+				"title": "基于信用衍生工具的银行业信贷资产管理",
+				"creators": [
+					{
+						"firstName": "",
+						"lastName": "尹灼",
+						"creatorType": "author",
+						"fieldMode": 1
+					},
+					{
+						"firstName": "",
+						"lastName": "王国刚",
+						"creatorType": "contributor",
+						"fieldMode": 1
+					}
+				],
+				"language": "Chinese 汉语",
+				"libraryCatalog": "Wenjin",
+				"numPages": "289",
+				"university": "中国社会科学院",
+				"url": "http://find.nlc.cn/search/showDocDetails?docId=7225006674714026291&dataSource=ucs01,bslw&query=%E4%BF%A1%E7%94%A8",
+				"attachments": [],
+				"tags": [
+					{
+						"tag": "信用"
+					},
+					{
+						"tag": "信贷"
+					},
+					{
+						"tag": "资金管理"
+					},
+					{
+						"tag": "银行"
+					},
+					{
+						"tag": "风险管理"
+					}
+				],
+				"notes": [],
+				"seeAlso": []
+			}
+		]
+	},
+	{
+		"type": "web",
+		"url": "http://find.nlc.cn/search/showDocDetails?docId=-8373230212045865087&dataSource=cjfd&query=wgcna",
+		"items": [
+			{
+				"itemType": "journalArticle",
+				"title": "基于WGCNA算法的基因共表达网络构建理论及其R软件实现",
+				"creators": [
+					{
+						"firstName": "",
+						"lastName": "宋长新",
+						"creatorType": "author",
+						"fieldMode": 1
+					},
+					{
+						"firstName": "",
+						"lastName": "雷萍",
+						"creatorType": "author",
+						"fieldMode": 1
+					},
+					{
+						"firstName": "",
+						"lastName": "王婷",
+						"creatorType": "author",
+						"fieldMode": 1
+					}
+				],
+				"date": "2013-02-28",
+				"abstractNote": "WGCNA(weighted geneco-expression network analysis)算法是一种构建基因共表达网络的典型系统生物学算法,该算法基于高通量的基因信使RNA(mRNA)表达芯片数据,被广泛应用于国际生物医学领域。本文旨在介绍WGCNA的基本数理原理,并依托R软件包WGNCA以实例的方式介绍其应用。WGCNA算法首先假定基因网络服从无尺度分布,并定义基因共表达相关矩阵、基因网络形成的邻接函数,然后计算不同节点的相异系数,并据此构建分层聚类树(hierarchical clusteringtree),该聚类树的不同分支代表不同的基因模块(module),模块内基因共表达程度高,而分数不同模块的基因共表达程度低。最后,探索模块与特定表型或疾病的关联关系,最终达到鉴定疾病治疗的靶点基因、基因网络的目的。",
+				"issue": "01",
+				"libraryCatalog": "Wenjin",
+				"pages": "143-149",
+				"publicationTitle": "基因组学与应用生物学 Genomics and Applied Biology",
+				"url": "http://find.nlc.cn/search/showDocDetails?docId=-8373230212045865087&dataSource=cjfd&query=wgcna",
+				"attachments": [],
+				"tags": [
+					{
+						"tag": " Gene co"
+					},
+					{
+						"tag": " R software"
+					},
+					{
+						"tag": "R软件WGCNA"
+					},
+					{
+						"tag": "WGCNA算法"
+					},
+					{
+						"tag": "expression network"
+					},
+					{
+						"tag": "基因共表达网络"
 					}
 				],
 				"notes": [],

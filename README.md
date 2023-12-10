@@ -22,7 +22,7 @@
 - [x] Wanfang Data
 - [x] Weixin
   - 建议添加测试用例。
-- [ ] Wenjin
+- [x] Wenjin
 - [ ] xiaoyuzhoufm
 - [ ] Zhihu
 
@@ -33,7 +33,7 @@
   - 暂缓，缺少测试用例，无法校对。
   - 暂缓，网站有较大改动，需要原作者重新适配。
 - [x] Soopat
-- [ ] Wenjin
+- [x] Wenjin
 
 ## 未使用`async`和`awaite`执行异步操作
 
@@ -57,7 +57,7 @@
 - [ ] Spc.org.cn
 - [x] SuperLib
 - [x] Wanfang Data
-- [ ] Wenjin
+- [x] Wenjin
 - [ ] xiaoyuzhoufm
 
 ## 其他
