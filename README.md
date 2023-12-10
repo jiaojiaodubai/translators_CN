@@ -12,7 +12,8 @@
 - [x] Nlc.cn
   - 备注：建议添加测试用例。
 - [ ] People's Daily
-- [ ] ProQuestCN Thesis
+- [x] ProQuestCN Thesis
+  - 备注：建议添加测试用例。
 - [ ] Soopat
 - [x] SuperLib
 - [ ] Wanfang Data
@@ -37,7 +38,7 @@
   - 暂缓，有未合并的pull request。
 - [x] dpaper
 - [ ] GFSOSO
-  - 暂缓，缺少测试案例，无法校对。
+  - 暂缓，缺少测试用例，无法校对。
   - 暂缓，网站有较大改动，需要原作者重新适配。
 - [x] Jd
 - [ ] translators_CN\National Public Service Platform for Standards Information
@@ -45,8 +46,8 @@
 - [ ] National Standards Open System - China
 - [ ] People's Daily
   - 暂缓，网站有较大改动，需要原作者重新适配。
-- [ ] PKULaw
-- [ ] ProQuestCN Thesis
+- [x] ProQuestCN Thesis
+  - 备注：建议添加测试用例。
 - [ ] Spc.org.cn
 - [x] SuperLib
 - [ ] Wanfang Data

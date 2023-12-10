@@ -8,8 +8,8 @@
 	"priority": 100,
 	"inRepository": true,
 	"translatorType": 4,
-	"browserSupport": "gcsbv",
-	"lastUpdated": "2020-09-07 01:24:40"
+	"browserSupport": "gcsibv",
+	"lastUpdated": "2023-12-10 09:48:15"
 }
 
 /*
@@ -34,6 +34,7 @@
 
 	***** END LICENSE BLOCK *****
 */
+
 function detectWeb(doc, url) {
 	if (url.includes('/thesisDetails/')) {
 		return 'thesis';
@@ -69,35 +70,20 @@ function getSearchResults(doc, checkOnly) {
 	return found ? items : false;
 }
 
-function doWeb(doc, url) {
-	if (detectWeb(doc, url) == "multiple") {
-		Zotero.selectItems(getSearchResults(doc, false), function (items) {
-			if (items) {
-				processURL(Object.keys(items));
-			}
-		});
+async function doWeb(doc, url) {
+	if (detectWeb(doc, url) == 'multiple') {
+		let items = await Zotero.selectItems(getSearchResults(doc, false));
+		if (!items) return;
+		for (let url of Object.keys(items)) {
+			await scrape(await requestDocument(url));
+		}
 	}
 	else {
-		scrape(doc, url);
-	}//*[@id="summary"]/div/span
+		await scrape(doc, url);
+	}
 }
-function processURL(urls) {
-	//Z.debug(urls);
-	var url = urls.pop();
-	//Z.debug(url);
-	//ZU.doGet(url, function(text) {
-	ZU.processDocuments(url, function (doc) {
-		//Z.debug(text);
-		//var parser = new DOMParser();
-		//var doc = parser.parseFromString(text, "text/html");
-		//Z.debug(doc);
-		scrape(doc, url);
-		if (urls.length) {
-			processURL(urls);
-		}
-	});
-}
-function scrape(doc, url) {
+
+async function scrape(doc, url = doc.location.href) {
 	var newItem = new Zotero.Item('thesis');
 	
 	var note = ZU.xpath(doc, "//div[@id='summary']/div/span");
@@ -264,7 +250,7 @@ function scrape(doc, url) {
 				
 				//accesToken=text.split(",")[1].split(":")[1];
 				//accesToken=accesToken.slice(1,accesToken.length-2);
-				accesToken = data.accessToken;
+				let accesToken = data.accessToken;
 				
 				var code = (ZU.xpath(doc, "//input[@id='thesisEncryptCode']"))[0].getAttribute("value");
 				var sites = ZU.xpath(doc, "//li[@role='presentation']");
@@ -284,8 +270,6 @@ function scrape(doc, url) {
 				Z.debug(remoteSites);
 				var pdfurl = domain + "thesis/download/" + remoteSites[Math.floor(Math.random() * remoteSites.length)] + "/" + code + "?accessToken=" + accesToken;
 				//Z.debug(pdfurl);
-		
-				var attachments = [];
 				Z.debug(pdfurl);
 				if (pdfurl) {
 					newItem.attachments.push({
@@ -300,9 +284,7 @@ function scrape(doc, url) {
 		}
 	}
 }
-function getNextItem(index, item) {
-	return index[index.indexOf(item) + 1];
-}
+
 function handleName(authors, isContri) {
 	var creators = [];
 	for (let author of authors) {
@@ -321,3 +303,8 @@ function handleName(authors, isContri) {
 	//Z.debug(creators);
 	return creators;
 }
+
+/** BEGIN TEST CASES **/
+var testCases = [
+]
+/** END TEST CASES **/
