@@ -9,7 +9,7 @@
 	"inRepository": true,
 	"translatorType": 4,
 	"browserSupport": "gcsibv",
-	"lastUpdated": "2022-10-28 08:35:39"
+	"lastUpdated": "2023-12-09 20:54:04"
 }
 
 /*
@@ -56,7 +56,7 @@
 function detectWeb(doc, url) {
 	var pattern = /subject_search|doulist|people\/[a-zA-Z._]*?\/(?:do|wish|collect)|.*?status=(?:do|wish|collect)|group\/[0-9]*?\/collection|tag/;
 
-	if (pattern.test(url)) {
+	if (pattern.test(url) && getSearchResults(doc, url, true)) {
 		return "multiple";
 	}
 	else {
@@ -74,30 +74,32 @@ function detectTitles(doc, url) {
 	}
 }
 
-function doWeb(doc, url) {
+function getSearchResults(doc, url, checkOnly) {
 	let r = /douban.com\/url\//;
-	if (detectWeb(doc, url) == "multiple") {
-		// also searches but they don't work as test cases in Scaffold
-		// e.g. https://book.douban.com/subject_search?search_text=Murakami&cat=1001
-		var items = {};
-		// var titles = ZU.xpath(doc, '//div[@class="title"]/a');
-		var titles = detectTitles(doc, url);
-		for (let i = 0; i < titles.length; i++) {
-			let title = titles[i];
-			// Zotero.debug({ href: title.href, title: title.textContent });
-			if (r.test(title.href)) { // Ignore links
-				continue;
-			}
-			items[title.href] = title.textContent;
+	var items = {};
+	var found = false;
+	var rows = detectTitles(doc, url);
+	for (let row of rows) {
+		let href = row.href;
+		let title = ZU.trimInternal(row.textContent);
+		if (!href || !title || r.test(row.href)) continue;
+		if (checkOnly) return true;
+		found = true;
+		items[href] = title;
+	}
+	return found ? items : false;
+}
+
+async function doWeb(doc, url) {
+	if (detectWeb(doc, url) == 'multiple') {
+		let items = await Zotero.selectItems(getSearchResults(doc, url, false));
+		if (!items) return;
+		for (let url of Object.keys(items)) {
+			await scrape(await requestDocument(url));
 		}
-		Zotero.selectItems(items, function (items) {
-			if (items) {
-				ZU.processDocuments(Object.keys(items), scrape);
-			}
-		});
 	}
 	else {
-		scrape(doc, url);
+		await scrape(doc, url);
 	}
 }
 
@@ -270,7 +272,7 @@ function transformChineseNumber(number) {
 	return res;
 }
 
-function scrape(doc, url) {
+async function scrape(doc, url = doc.location.href) {
 	// 类型 & URL
 	var itemType = "book";
 	var newItem = new Zotero.Item(itemType);
