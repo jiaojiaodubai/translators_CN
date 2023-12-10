@@ -34,26 +34,26 @@
 
 	***** END LICENSE BLOCK *****
 */
-var core = {
-	PKU: "北大《中文核心期刊要目总览》",
-	北大核心: "北大《中文核心期刊要目总览》",
-	ISTIC: "中国科技论文与引文数据库",
-	CSSCI: "中文社会科学引文索引",
-	NJU: "中文社会科学引文索引",
-	CSTPCD: "中文社会科学引文索引",
-	CSCD: "中国科学引文数据库",
-	CASS: "《中国人文社会科学核心期刊要览》",
-	AJ: "俄罗斯《文摘杂志》",
-	CA: "美国《化学文摘》",
-	EI: "美国《工程索引》",
-	SCI: "美国《科学引文索引》",
-	SCIE: "美国《科学引文索引(扩展版)》",
-	"A&HCI": "《艺术与人文科学引文索引》",
-	SSCI: "美国《社会科学引文索引》",
-	CBST: "日本《科学技术文献速报》",
-	SA: "英国《科学文摘》",
-	GDZJ: "广电总局认定学术期刊"
-};
+// var core = {
+// 	PKU: "北大《中文核心期刊要目总览》",
+// 	北大核心: "北大《中文核心期刊要目总览》",
+// 	ISTIC: "中国科技论文与引文数据库",
+// 	CSSCI: "中文社会科学引文索引",
+// 	NJU: "中文社会科学引文索引",
+// 	CSTPCD: "中文社会科学引文索引",
+// 	CSCD: "中国科学引文数据库",
+// 	CASS: "《中国人文社会科学核心期刊要览》",
+// 	AJ: "俄罗斯《文摘杂志》",
+// 	CA: "美国《化学文摘》",
+// 	EI: "美国《工程索引》",
+// 	SCI: "美国《科学引文索引》",
+// 	SCIE: "美国《科学引文索引(扩展版)》",
+// 	"A&HCI": "《艺术与人文科学引文索引》",
+// 	SSCI: "美国《社会科学引文索引》",
+// 	CBST: "日本《科学技术文献速报》",
+// 	SA: "英国《科学文摘》",
+// 	GDZJ: "广电总局认定学术期刊"
+// };
 
 
 var nodeFieldMapper = {
@@ -126,7 +126,7 @@ var nodeFieldMapperForMed = {
 
 function addField(newItem, field, value) {
 	value = value.replace(/\s+/, " ");
-	newItem[field] ? newItem[field] = newItem[field] + '\n' + value : newItem[field] = value;
+	newItem[field] = newItem[field] ? newItem[field] + '\n' + value : value;
 }
 
 function getTextPair(node) {
@@ -165,7 +165,7 @@ function addDVI(newItem, texts) {
 	texts.length === 3 && texts.splice(2, 0, '');
 	newItem.date = texts[1];
 	newItem.volume = texts[2].replace(",", "");
-	newItem.issue = texts[3].replace(/[\(\)]/g, '');
+	newItem.issue = texts[3].replace(/[()]/g, '');
 }
 
 function addDVIForMed(newItem, node) {
@@ -260,7 +260,7 @@ function addHistory(newItem, history) {
 }
 
 
-function scrape(doc) {
+async function scrape(doc) {
 	Z.debug("---------------WanFang Data 20230719---------------");
 	var id = getIDFromPage(doc) || getIDFromURL(doc.URL);
 	var newItem = new Zotero.Item(id.dbname);
@@ -279,9 +279,12 @@ function scrape(doc) {
 			// Z.debug(nodeTextPair);
 			if (nodeTextPair[0] == 'PMID') newItem.language = 'en'; // PMID for English article
 			if (nodeTextPair[0].trim() in nodeFieldMapperForMed) {
-				typeof nodeFieldMapperForMed[nodeTextPair[0]] == "string"
-					? addField(newItem, nodeFieldMapperForMed[nodeTextPair[0]], nodeTextPair[1].trim())
-					: nodeFieldMapperForMed[nodeTextPair[0]](newItem, node); // 调用函数处理
+				if (typeof nodeFieldMapperForMed[nodeTextPair[0]] == "string") {
+					addField(newItem, nodeFieldMapperForMed[nodeTextPair[0]], nodeTextPair[1].trim());
+				}
+				else {
+					nodeFieldMapperForMed[nodeTextPair[0]](newItem, node); // 调用函数处理
+				}
 			}
 		}
 	}
@@ -294,9 +297,12 @@ function scrape(doc) {
 				newItem.notes.push({ note: texts.join("\n") });
 				continue;
 			}
-			typeof v == 'string'
-				? addField(newItem, v, texts.join('; '))
-				: v(newItem, texts);
+			if (typeof v == 'string') {
+				addField(newItem, v, texts.join('; '));
+			}
+			else {
+				v(newItem, texts);
+			}
 		}
 	}
 	if (doc.URL.includes("wanfangdata.com.cn/standard/")) {
@@ -306,9 +312,9 @@ function scrape(doc) {
 	if (newItem.abstractNote) newItem.abstractNote = newItem.abstractNote.replace(/^摘要：;/, "");
 	if (newItem.DOI) newItem.DOI = newItem.DOI.replace(/^DOI[:：];?\s?/, "");
 	if (newItem.itemType != 'thesis' && newItem.university) {
-		newItem.extra
-			? newItem.extra = newItem.extra + "\n地点：" + newItem.university
-			: newItem.extra = "地点：" + newItem.university;
+		newItem.extra = newItem.extra
+			? newItem.extra + "\n地点：" + newItem.university
+			: "地点：" + newItem.university;
 		newItem.university = "";
 	}
 
@@ -334,7 +340,7 @@ function getIDFromURL(url) {
 		tmp = url.match(/Detail\?id=(\w+)_(\w+)/);
 	}
 	else {
-		tmp = url.match(/\/(\w+)[\/_]([0-9a-zA-Z%\-]+)$/);
+		tmp = url.match(/\/(\w+)[/_]([0-9a-zA-Z%-]+)$/);
 	}
 	if (!tmp) return false;
 	dbname = tmp[1];
@@ -379,7 +385,6 @@ function getTypeFromDBName(db) {
 		conference: "conferencePaper",
 		patent: "patent",
 		// nstr: "report",
-		perio: "journalArticle",
 		degree: "thesis",
 		// tech: "report"
 		PeriodicalPaper: "journalArticle", // For med
@@ -426,19 +431,19 @@ function getSearchResults(doc, itemInfo) {
 		idx += 1;
 	}
 	// Z.debug(itemInfo);
-	return items;
+	return found ? items : false;
 }
 
-function doWeb(doc, url) {
-	if (detectWeb(doc, url) == "multiple") {
-		var itemInfo = {};
-		var items = getSearchResults(doc, itemInfo);
-		Z.selectItems(items, function (selectedItems) {
-			if (selectedItems) ZU.processDocuments(Object.keys(selectedItems), scrape);
-		});
+async function doWeb(doc, url) {
+	if (detectWeb(doc, url) == 'multiple') {
+		let items = await Zotero.selectItems(getSearchResults(doc, false));
+		if (!items) return;
+		for (let url of Object.keys(items)) {
+			await scrape(await requestDocument(url));
+		}
 	}
 	else {
-		scrape(doc);
+		await scrape(doc, url);
 	}
 }
 

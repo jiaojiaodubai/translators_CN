@@ -19,7 +19,7 @@
 - [x] Soopat
   - 备注：缺少帐号，无法测试。
 - [x] SuperLib
-- [ ] Wanfang Data
+- [x] Wanfang Data
 - [ ] Weixin
 - [ ] Wenjin
 - [ ] xiaoyuzhoufm
@@ -55,7 +55,7 @@
   - 备注：建议添加测试用例。
 - [ ] Spc.org.cn
 - [x] SuperLib
-- [ ] Wanfang Data
+- [x] Wanfang Data
 - [ ] Weixin
 - [ ] Wenjin
 - [ ] xiaoyuzhoufm
