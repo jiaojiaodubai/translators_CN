@@ -9,9 +9,8 @@
 	"inRepository": true,
 	"translatorType": 4,
 	"browserSupport": "gcsibv",
-	"lastUpdated": "2023-04-07 07:40:18"
+	"lastUpdated": "2023-12-10 09:39:36"
 }
-
 
 /*
 	***** BEGIN LICENSE BLOCK *****
@@ -44,7 +43,6 @@ function detectWeb(doc, url) {
 	else {
 		return "newspaperArticle";
 	}
-	//to do 匹配新闻版面，不止单篇文章
 }
 
 function getSearchResults(doc, checkOnly) {
@@ -58,31 +56,37 @@ function getSearchResults(doc, checkOnly) {
 	return items;
 }
 
-function doWeb(doc, url) {
-	if (detectWeb(doc, url) == "multiple") {
-		Zotero.selectItems(getSearchResults(doc, false), function (items) {
-			if (!items) {
-				return;
-			}
-			var articles = [];
-			for (var i in items) {
-				articles.push(i);
-			}
-			ZU.processDocuments(articles, scrape);
-		});
+function getSearchResults(doc, checkOnly) {
+	var items = {};
+	var found = false;
+	var rows = doc.querySelectorAll('.title_list a, .daodu_warp a, .sreach_li a.open_detail_link');
+	for (let row of rows) {
+		let href = row.href;
+		let title = ZU.trimInternal(row.textContent);
+		if (!href || !title) continue;
+		if (checkOnly) return true;
+		found = true;
+		items[href] = title;
 	}
-	else if (detectWeb(doc, url) == "newspaperArticle") { //newspaperArticle
-		scrape(doc, url);
+	return found ? items : false;
+}
+
+async function doWeb(doc, url) {
+	if (detectWeb(doc, url) == 'multiple') {
+		let items = await Zotero.selectItems(getSearchResults(doc, false));
+		if (!items) return;
+		for (let url of Object.keys(items)) {
+			await scrape(await requestDocument(url));
+		}
 	}
 	else {
-		return false;
+		await scrape(doc, url);
 	}
 }
 
-function scrape(doc, url) {
+async function scrape(doc, url = doc.location.href) {
 	var type = detectWeb(doc, url);
 	var item = new Zotero.Item(type);
-	var user = null;
 
 	item.title = ZU.xpathText(doc, '//div[@class="title"]');
 	var authors = ZU.xpathText(doc, '//div[@class="author"]');
@@ -118,7 +122,9 @@ function scrape(doc, url) {
 	});
 
 	item.complete();
-}/** BEGIN TEST CASES **/
+}
+
+/** BEGIN TEST CASES **/
 var testCases = [
 	{
 		"type": "web",

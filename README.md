@@ -44,6 +44,7 @@
   - 暂缓，网站有较大改动，需要原作者重新适配。
 - [ ] National Standards Open System - China
 - [ ] People's Daily
+  - 暂缓，网站有较大改动，需要原作者重新适配。
 - [ ] PKULaw
 - [ ] ProQuestCN Thesis
 - [ ] Spc.org.cn
