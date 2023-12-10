@@ -148,7 +148,7 @@ function getSearchResults(doc, url, checkOnly) {
 async function doWeb(doc, url) {
 	if (detectWeb(doc, url) == "multiple") {
 		let selectItems = await Zotero.selectItems(getSearchResults(doc, false));
-		for (var url in selectItems) {
+		for (let url in selectItems) {
 			await scrape(url, getIDFromURL(url));
 		}
 	}
@@ -215,7 +215,7 @@ async function scrape(url, id) {
 async function getPDFUrl(id) {
 	let pdfurl;
 	if (id.type == 'Ancient') {
-		pdfurl = 'https://ft.ncpssd.org/pdf/getn/' + `ancient/pdf/${id.barcodenum}.pdf`;
+		pdfurl = `https://ft.ncpssd.org/pdf/getn/ancient/pdf/${id.barcodenum}.pdf`;
 	}
 	else {
 		let geturl = `https://www.ncpssd.org/Literature/readurl?id=${id.type == 'eJournalArticle' ? id.id.match(/(\d+)$/g)[0] : id.id}&type=${id.type == 'eJournalArticle' ? 2 : 1}`;
@@ -227,7 +227,7 @@ async function getPDFUrl(id) {
 	return pdfurl;
 }
 
-function getUrl(node, searchUrl) {
+function getUrl(node, _searchUrl) {
 	var id = node.getAttribute("data-id");
 	var type = node.getAttribute("data-name");
 	var datatype = node.getAttribute("data-type");
@@ -256,8 +256,10 @@ function getUrl(node, searchUrl) {
 	if (datatype == "学位论文") {
 		datatype = "Degree";
 	}
-	return encodeURI("https://www.ncpssd.org/Literature/articleinfo?id=" + id + "&type=" + datatype + "&datatype=" + type + "&typename=" + typename + "&nav=0" + "&barcodenum=" + barcodenum);
-}/** BEGIN TEST CASES **/
+	return encodeURI(`https://www.ncpssd.org/Literature/articleinfo?id=${id}&type=${datatype}&datatype=${type}&typename=${typename}&nav=0&barcodenum=${barcodenum}`);
+}
+
+/** BEGIN TEST CASES **/
 var testCases = [
 	{
 		"type": "web",

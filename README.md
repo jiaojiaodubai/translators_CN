@@ -7,7 +7,8 @@
 - [x] Duxiu
 - [ ] GFSOSO
 - [ ] National Public Service Platform for Standards Information - China
-- [ ] Ncpssd
+  - 暂缓，网站有较大改动，需要原作者重新适配。
+- [x] Ncpssd
 - [ ] Nlc.cn
 - [ ] People's Daily
 - [ ] ProQuestCN Thesis
