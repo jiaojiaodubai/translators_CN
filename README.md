@@ -1,72 +1,16 @@
 # TODO
 
-## 未通过ESLint
+## 阻塞任务
 
-- [x] CNKI
-- [x] Dangdang
-- [x] Duxiu
-- [ ] GFSOSO
-  - 暂缓，缺少测试用例，无法校对。
-  - 暂缓，网站有较大改动，需要原作者重新适配。
-- [ ] National Public Service Platform for Standards Information - China
-  - 暂缓，网站有较大改动，需要原作者重新适配。
-- [x] Ncpssd
-- [x] Nlc.cn
-  - 备注：建议添加测试用例。
-- [ ] People's Daily
-  - 暂缓，网站有较大改动，需要原作者重新适
-- [x] ProQuestCN Thesis
-  - 备注：建议添加测试用例。
-- [x] Soopat
-  - 备注：缺少帐号，无法测试。
-- [x] SuperLib
-- [x] Wanfang Data
-- [x] Weixin
-  - 建议添加测试用例。
-- [x] Wenjin
-- [x] xiaoyuzhoufm
-  - 建议添加测试用例。
-- [x] Zhihu
-
-## `ZU.do*()`遗留
-
-- [x] Baidu Scholar
-- [ ] GFSOSO
-  - 暂缓，缺少测试用例，无法校对。
-  - 暂缓，网站有较大改动，需要原作者重新适配。
-- [x] Soopat
-- [x] Wenjin
-
-## 未使用`async`和`awaite`执行异步操作
-
-- [x] Baidu Scholar
-- [x] Bilibili
-- [x] Dangdang
-- [ ] Douban
-  - 暂缓，有未合并的pull request。
-- [x] dpaper
-- [ ] GFSOSO
-  - 暂缓，缺少测试用例，无法校对。
-  - 暂缓，网站有较大改动，需要原作者重新适配。
-- [x] Jd
-- [ ] translators_CN\National Public Service Platform for Standards Information
-  - 暂缓，网站有较大改动，需要原作者重新适配。
-- [ ] National Standards Open System - China
-- [ ] People's Daily
-  - 暂缓，网站有较大改动，需要原作者重新适配。
-- [x] ProQuestCN Thesis
-  - 备注：建议添加测试用例。
-- [ ] Spc.org.cn
-- [x] SuperLib
-- [x] Wanfang Data
-- [x] Wenjin
-- [x] xiaoyuzhoufm
-
-## 其他
-
-- [x] Cubox
-  - [x] `header`缺少必要信息
-  - [x] 缺`data.json`记录
+1. GFSOSO
+   - 代码陈旧
+   - 网站变动较大
+2. Jd
+   - 数据有限且粗糙
+3. ProQuestCN Thesis
+   - 缺少测试用例
+   - 无访问权限
+4. 
 
 ## 开发建议
 
