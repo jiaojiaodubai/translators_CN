@@ -10,7 +10,20 @@
 3. ProQuestCN Thesis
    - 缺少测试用例
    - 无访问权限
-4. 
+4. Soopat
+   - 无访问权限
+
+## 局限
+
+1. Baidu Scholar
+   - 有时可能无法识别条目，或条目类型不正确
+2. Ncpssd
+   - 无法下载PDF
+3. PubScholar
+   - 不支持首页推荐文章
+   - 多条目抓取可能会缺少字段
+4. Wanfang data
+   - 无法下载PDF
 
 ## 开发建议
 
